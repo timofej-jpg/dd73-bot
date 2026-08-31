@@ -41,7 +41,7 @@ DEFAULT_TIMES = ["10:00", "12:00", "14:00", "16:00", "18:00"]
 time_slots = {t: True for t in DEFAULT_TIMES}
 user_data = {}
 all_orders = []
-registered_clients = set() # Для ежемесячных рассылок
+registered_clients = set()
 
 
 # —— 3. КЛАВИАТУРЫ ——
@@ -107,12 +107,11 @@ def send_monthly_reminders():
         except Exception as e:
             print(f"Ошибка рассылки клиенту {client_id}: {e}")
 
-# Запуск рассылки каждые 30 дней
 scheduler.add_job(send_monthly_reminders, 'interval', days=30)
 scheduler.start()
 
 def schedule_2h_reminder(chat_id, service_name, day, time_val):
-    """Имитация / Настройка напоминания за 2 часа (отправляет через 10 секунд для демонстрации)"""
+    """Напоминание за 2 часа (через 15 сек для теста)"""
     def send_remind():
         text = (
             f"⏰ *НАГАДУВАННЯ ПРО ЗАПИС!*\n\n"
@@ -125,8 +124,6 @@ def schedule_2h_reminder(chat_id, service_name, day, time_val):
         except Exception as e:
             print(f"Ошибка отправки напоминания: {e}")
 
-    # В реальности высчитывается время за 2 часа. 
-    # Для теста перед заказчиком ставим отправку через 15 секунд после записи:
     threading.Timer(15.0, send_remind).start()
 
 
@@ -228,7 +225,7 @@ def show_channel(message):
     bot.send_message(message.chat.id, "📢 Підписуйтесь на наш офіційний канал:", reply_markup=markup)
 
 
-# —— 6. ПРОЦЕСС ЗАПИСИ С ЗАЩИТОЙ И ПЕРЕНОСОМ ——
+# —— 6. ПРОЦЕСС ЗАПИСИ С СТРОГОЙ ЗАЩИТОЙ ——
 @bot.message_handler(func=lambda message: message.text == "📅 Записатися")
 def start_booking(message):
     user_data[message.chat.id] = {}
@@ -278,12 +275,18 @@ def handle_service_selection(call):
     service_name = service_info.get('name', 'Послуга')
     chat_id = call.message.chat.id
     
-    # ПРОВЕРКА: Заявка отправляется ТОЛЬКО если человек прошёл весь путь записи
-    if chat_id in user_data and 'contact' in user_data[chat_id] and 'time' in user_data[chat_id]:
-        contact = user_data[chat_id].get('contact', 'Не вказано')
-        car = user_data[chat_id].get('car', 'Не вказано')
-        day = user_data[chat_id].get('day', 'Не вказано')
-        time_val = user_data[chat_id].get('time', 'Не вказано')
+    # ПРОВЕРКА: Все 4 поля обязаны быть заполнены!
+    data = user_data.get(chat_id, {})
+    has_contact = 'contact' in data and data['contact'] and not data['contact'].startswith('/') and data['contact'] not in ["🚗 Послуги та ціни", "📍 Де ми знаходимось", "📞 Контакти"]
+    has_car = 'car' in data and data['car']
+    has_day = 'day' in data and data['day']
+    has_time = 'time' in data and data['time']
+
+    if has_contact and has_car and has_day and has_time:
+        contact = data['contact']
+        car = data['car']
+        day = data['day']
+        time_val = data['time']
         
         if time_val in time_slots:
             time_slots[time_val] = False
@@ -291,7 +294,6 @@ def handle_service_selection(call):
         all_orders.append({'contact': contact, 'car': car, 'day': day, 'time': time_val, 'service': service_name})
         registered_clients.add(chat_id)
         
-        # Отправляем сообщение администратору
         admin_text = (
             f"🚨 *НОВА ЗАЯВКА НА ЗАПИС! (dd73_detailing)*\n\n"
             f"👤 *Клієнт:* {contact}\n"
@@ -305,7 +307,6 @@ def handle_service_selection(call):
         except Exception as e:
             print(f"Помилка відправки адміну: {e}")
             
-        # Отправляем подтверждение клиенту с кнопкой "Перенести"
         client_text = (
             f"✅ *Дякуємо за запис! Ми чекаємо на вас!*\n\n"
             f"🛠 *Послуга:* {service_name}\n"
@@ -316,12 +317,10 @@ def handle_service_selection(call):
         )
         bot.edit_message_text(client_text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=reschedule_keyboard())
         
-        # Запуск фонового напоминания за 2 часа
         schedule_2h_reminder(chat_id, service_name, day, time_val)
-        
         user_data.pop(chat_id, None)
     else:
-        # Просмотр прайса в режиме ознакомления
+        # Режим просмотра прайса
         text = (
             f"ℹ️ *{service_name}*\n"
             f"💰 Вартість: *{service_info.get('price', '')}*\n\n"
