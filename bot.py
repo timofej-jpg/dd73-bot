@@ -3,8 +3,7 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardMarkup, InlineKeyboardBut
 
 # ——— НАСТРОЙКИ БОТА ———
 # Вставь сюда свой токен (HTTP API), который дал @BotFather
-BOT_TOKEN = "8721602640:AAFDAUZpGo3_uKrcG-7KZSHePBwItgYxJ-Q
-"
+BOT_TOKEN = "8721602640:AAFDAUZpGo3_uKrcG-7KZSHePBwItgYxJ-Q"
 
 # Твой ID в Telegram (чтобы получать уведомления о заявках)
 ADMIN_ID = 1213392194
