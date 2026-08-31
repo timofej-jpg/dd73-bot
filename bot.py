@@ -76,7 +76,7 @@ def get_admin_slots_keyboard():
     markup = InlineKeyboardMarkup()
     for t, is_free in time_slots.items():
         status = "🟢 Вільний" if is_free else "🔴 Зайнятий"
-        markup.add(InlineKeyboardButton(f"{t} — {status}", callback_data=f"toggle_slot_{t}"))
+        markup.add(InlineKeyboardButton(f"{t} — {status}", callback_data=f"{'toggle_slot_' + t}"), )
     return markup
 
 def services_menu():
@@ -95,7 +95,6 @@ def reschedule_keyboard():
 scheduler = BackgroundScheduler()
 
 def send_monthly_reminders():
-    """Рассылка клиентам 1 раз в месяц"""
     text = (
         f"👋 Вітаємо від студії *{SHOP_NAME}*!\n\n"
         "✨ Минув місяць з вашого останнього візиту. Ваше авто заслуговує на якісний догляд та чистоту!\n\n"
@@ -105,13 +104,12 @@ def send_monthly_reminders():
         try:
             bot.send_message(client_id, text, parse_mode="Markdown")
         except Exception as e:
-            print(f"Ошибка рассылки клиенту {client_id}: {e}")
+            print(f"Помилка розсилки клієнту {client_id}: {e}")
 
 scheduler.add_job(send_monthly_reminders, 'interval', days=30)
 scheduler.start()
 
 def schedule_2h_reminder(chat_id, service_name, day, time_val):
-    """Напоминание за 2 часа (через 15 сек для теста)"""
     def send_remind():
         text = (
             f"⏰ *НАГАДУВАННЯ ПРО ЗАПИС!*\n\n"
@@ -122,7 +120,7 @@ def schedule_2h_reminder(chat_id, service_name, day, time_val):
         try:
             bot.send_message(chat_id, text, parse_mode="Markdown")
         except Exception as e:
-            print(f"Ошибка отправки напоминания: {e}")
+            print(f"Помилка відправки нагадування: {e}")
 
     threading.Timer(15.0, send_remind).start()
 
@@ -130,6 +128,7 @@ def schedule_2h_reminder(chat_id, service_name, day, time_val):
 # —— 5. ОБРАБОТЧИКИ КОМАНД ——
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    bot.clear_step_handler_by_chat_id(message.chat.id)
     user_data.pop(message.chat.id, None)
     text = (
         f"Вітаємо у студії детейлінгу *{SHOP_NAME}*! 🔥\n\n"
@@ -145,7 +144,7 @@ def admin_panel(message):
         markup.row("⚙️ Керування слотами часу", "📥 Всі записи")
         markup.row("📢 Запустити щомісячне нагадування")
         markup.row("⬅️ Повернутися в головне меню")
-        text = "👑 *Панель Адміністратора dd73_detailing*\n\nТут ви можете керувати вільної датою/часом, переглядати заявки та запускати рассылку."
+        text = "👑 *Панель Адміністратора dd73_detailing*\n\nТут ви можете керувати вільним часом, переглядати заявки та запускати розсилку."
         bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=markup)
     else:
         bot.send_message(message.chat.id, "⛔ У вас немає доступу до цієї панелі.")
@@ -158,6 +157,7 @@ def manual_reminder(message):
 
 @bot.message_handler(func=lambda message: message.text == "⬅️ Повернутися в головне меню")
 def back_to_main(message):
+    bot.clear_step_handler_by_chat_id(message.chat.id)
     bot.send_message(message.chat.id, "Ви повернулися в головне меню:", reply_markup=get_main_menu(message.from_user.id))
 
 @bot.message_handler(func=lambda message: message.text == "⚙️ Керування слотами часу")
@@ -225,26 +225,40 @@ def show_channel(message):
     bot.send_message(message.chat.id, "📢 Підписуйтесь на наш офіційний канал:", reply_markup=markup)
 
 
-# —— 6. ПРОЦЕСС ЗАПИСИ С СТРОГОЙ ЗАЩИТОЙ ——
+# —— 6. ПРОЦЕСС ЗАПИСИ С ЧЕТКИМ ПОРЯДКОМ ——
 @bot.message_handler(func=lambda message: message.text == "📅 Записатися")
 def start_booking(message):
-    user_data[message.chat.id] = {}
+    bot.clear_step_handler_by_chat_id(message.chat.id)
+    user_data[message.chat.id] = {'booking_in_progress': True}
     bot.send_message(message.chat.id, "Будь ласка, введіть ваше *Ім'я* та *номер телефону* для зв'язку:", parse_mode="Markdown")
     bot.register_next_step_handler(message, process_contact)
 
 @bot.callback_query_handler(func=lambda call: call.data == "reschedule_booking")
 def reschedule_booking(call):
     bot.answer_callback_query(call.id, "Переходимо до вибору нового часу...")
-    user_data[call.message.chat.id] = {}
+    bot.clear_step_handler_by_chat_id(call.message.chat.id)
+    user_data[call.message.chat.id] = {'booking_in_progress': True}
     bot.send_message(call.message.chat.id, "Будь ласка, введіть ваше *Ім'я* та *номер телефону* для зв'язку:", parse_mode="Markdown")
     bot.register_next_step_handler(call.message, process_contact)
 
 def process_contact(message):
+    if message.text in ["🚗 Послуги та ціни", "📅 Записатися", "📍 Де ми знаходимось", "📞 Контакти", "💬 Наш Telegram-канал / Відгуки", "👑 Панель Адміністратора"]:
+        bot.clear_step_handler_by_chat_id(message.chat.id)
+        user_data.pop(message.chat.id, None)
+        bot.send_message(message.chat.id, "Запис скасовано. Оберіть пункт меню:", reply_markup=get_main_menu(message.from_user.id))
+        return
+
     user_data[message.chat.id]['contact'] = message.text
     bot.send_message(message.chat.id, "Вкажіть марку та модель вашого автомобіля:", parse_mode="Markdown")
     bot.register_next_step_handler(message, process_car)
 
 def process_car(message):
+    if message.text in ["🚗 Послуги та ціни", "📅 Записатися", "📍 Де ми знаходимось", "📞 Контакти", "💬 Наш Telegram-канал / Відгуки", "👑 Панель Адміністратора"]:
+        bot.clear_step_handler_by_chat_id(message.chat.id)
+        user_data.pop(message.chat.id, None)
+        bot.send_message(message.chat.id, "Запис скасовано. Оберіть пункт меню:", reply_markup=get_main_menu(message.from_user.id))
+        return
+
     user_data[message.chat.id]['car'] = message.text
     bot.send_message(message.chat.id, "Оберіть зручний день для візиту:", reply_markup=get_days_keyboard())
 
@@ -252,7 +266,7 @@ def process_car(message):
 def handle_day_selection(call):
     day = call.data.replace('day_', '')
     chat_id = call.message.chat.id
-    if chat_id in user_data:
+    if chat_id in user_data and user_data[chat_id].get('booking_in_progress'):
         user_data[chat_id]['day'] = day
         time_kb = get_available_time_keyboard()
         if not time_kb:
@@ -264,7 +278,7 @@ def handle_day_selection(call):
 def handle_time_selection(call):
     time_val = call.data.replace('time_', '')
     chat_id = call.message.chat.id
-    if chat_id in user_data:
+    if chat_id in user_data and user_data[chat_id].get('booking_in_progress'):
         user_data[chat_id]['time'] = time_val
         bot.edit_message_text(f"Обрано час: *{user_data[chat_id].get('day', '')} о {time_val}*\nТепер оберіть потрібну послугу:", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=services_menu())
 
@@ -275,14 +289,8 @@ def handle_service_selection(call):
     service_name = service_info.get('name', 'Послуга')
     chat_id = call.message.chat.id
     
-    # ПРОВЕРКА: Все 4 поля обязаны быть заполнены!
     data = user_data.get(chat_id, {})
-    has_contact = 'contact' in data and data['contact'] and not data['contact'].startswith('/') and data['contact'] not in ["🚗 Послуги та ціни", "📍 Де ми знаходимось", "📞 Контакти"]
-    has_car = 'car' in data and data['car']
-    has_day = 'day' in data and data['day']
-    has_time = 'time' in data and data['time']
-
-    if has_contact and has_car and has_day and has_time:
+    if data.get('booking_in_progress') and 'contact' in data and 'car' in data and 'day' in data and 'time' in data:
         contact = data['contact']
         car = data['car']
         day = data['day']
@@ -320,7 +328,6 @@ def handle_service_selection(call):
         schedule_2h_reminder(chat_id, service_name, day, time_val)
         user_data.pop(chat_id, None)
     else:
-        # Режим просмотра прайса
         text = (
             f"ℹ️ *{service_name}*\n"
             f"💰 Вартість: *{service_info.get('price', '')}*\n\n"
