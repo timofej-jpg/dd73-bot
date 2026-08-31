@@ -2,34 +2,31 @@ import telebot
 from telebot.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
 # —— НАСТРОЙКИ БОТА ——
-# Твой токен от @BotFather
 BOT_TOKEN = "8721602640:AAG5kjtNor9RJUGfDkRSXtAUz_lsikNPxA4"
-
-# Твой ID в Telegram
 ADMIN_ID = 1213392194
 
 bot = telebot.TeleBot(BOT_TOKEN)
+SHOP_NAME = "dd73_detailing"
+TG_CHANNEL = "https://t.me/dd73_detailing"
 
-# Название твоей студии
-SHOP_NAME = "DD73 Detailing"
-
-# —— ДАННЫЕ УСЛУГ (Прайс-лист) ——
+# —— ДАННЫЕ УСЛУГ ——
 SERVICES = {
-    'wash': {'name': 'Професійне миття кузова', 'price': 'від 500 грн'},
-    'clean': {'name': 'Хімчистка салону', 'price': 'від 2500 грн'},
-    'polish': {'name': 'Полірування кузова', 'price': 'від 4000 грн'},
-    'ceramic': {'name': 'Нанесення кераміки (з гарантією)', 'price': 'від 8000 грн'},
-    'antirain': {'name': 'Антидощ (лобове)', 'price': '600 грн'},
-    'engine': {'name': 'Детейлінг мийка двигуна', 'price': 'від 1200 грн'}
+    'wash': {'name': '🧽 Детейлінг мийка кузова', 'price': 'від 600 грн'},
+    'clean': {'name': '🧹 Глибока хімчистка салону', 'price': 'від 3000 грн'},
+    'polish': {'name': '✨ Полірування кузова', 'price': 'від 4500 грн'},
+    'ceramic': {'name': '🛡 Нанесення кераміки', 'price': 'від 8500 грн'},
+    'ppf': {'name': '🚗 Бронеплівка (PPF)', 'price': 'від 12000 грн'},
+    'antirain': {'name': '🌧 Покриття «Антидощ»', 'price': '800 грн'}
 }
 
 user_data = {}
 
-# —— КЛАВИАТУРЫ ——
+# —— МЕНЮ И КЛАВИАТУРЫ ——
 def main_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row("🚗 Послуги та ціни", "📅 Записатися")
-    markup.row("📍 Де ми знаходимся", "📞 Контакти")
+    markup.row("📍 Де ми знаходимось", "📞 Контакти")
+    markup.row("💬 Наш Telegram-канал / Відгуки")
     return markup
 
 def services_menu():
@@ -39,39 +36,53 @@ def services_menu():
         markup.add(btn)
     return markup
 
+def channel_inline_menu():
+    markup = InlineKeyboardMarkup()
+    btn = InlineKeyboardButton("📢 Перейти у Telegram-канал", url=TG_CHANNEL)
+    markup.add(btn)
+    return markup
+
 # —— ОБРАБОТЧИКИ КОМАНД ——
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_data.pop(message.chat.id, None)
     text = (
-        f"Вітаємо у студії детейлінгу *{SHOP_NAME}*! 👋\n\n"
-        "Оберіть потрібный розділ у меню нижче:"
+        f"Вітаємо у студії детейлінгу *{SHOP_NAME}*! 🔥\n\n"
+        "✨ ДЕТЕЙЛІНГ | ХІМЧИСТКА | ПОЛІРУВАННЯ | КЕРАМІКА | БРОНЕПЛІВКА ✨\n\n"
+        "Оберіть потрібний розділ у меню нижче:"
     )
     bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=main_menu())
 
 @bot.message_handler(func=lambda message: message.text == "🚗 Послуги та ціни")
 def show_services(message):
-    text = "📋 *Наші послуги та орієнтовні ціни:*\nВыберите услугу для детальной информации или записи:"
+    text = "📋 *Наші послуги та прайс:*\nОберіть послугу для детальної інформації або запису:"
     bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=services_menu())
 
-@bot.message_handler(func=lambda message: message.text == "📍 Де ми знаходимся")
+@bot.message_handler(func=lambda message: message.text == "📍 Де ми знаходимось")
 def show_location(message):
     text = (
-        f"🏢 *Студія детейлінгу {SHOP_NAME}*\n"
-        "📍 Одеса / Фонтанка\n"
-        "⏰ Працюємо за попереднім записом с 9:00 до 19:00"
+        f"🏢 *Студія детейлінгу {SHOP_NAME}*\n\n"
+        "📍 *Адреса:* ул. Дюківська 3, Одеса 📍\n"
+        "⏰ *Графік роботи:* 9:00 - 20:00 (за попереднім записом)"
     )
     bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: message.text == "📞 Контакти")
 def show_contacts(message):
     text = (
-        "📞 *Зв'язок з нами:*\n\n"
-        "Телефон / Telegram / Viber: +380XXXXXXXXX\n"
+        f"📞 *Зв'язок з {SHOP_NAME}:*\n\n"
+        "📱 *Запис по телефону:* 073 567 73 73\n"
+        "📍 *Адреса:* Дюківська 3, Одеса\n\n"
         "Пишіть або телефонуйте з будь-яких питань!"
     )
     bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
+@bot.message_handler(func=lambda message: message.text == "💬 Наш Telegram-канал / Відгуки")
+def show_channel(message):
+    text = "📢 Підписуйтесь на наш офіційний канал, щоб дивитися роботи, до/після та читати відгуки:"
+    bot.send_message(message.chat.id, text, reply_markup=channel_inline_menu())
+
+# —— ПРОЦЕСС ЗАПИСИ НА УСЛУГУ ——
 @bot.message_handler(func=lambda message: message.text == "📅 Записатися")
 def start_booking(message):
     user_data[message.chat.id] = {}
@@ -79,17 +90,18 @@ def start_booking(message):
     bot.register_next_step_handler(message, process_contact)
 
 def process_contact(message):
-    user_data[message.chat.id] = {'contact': message.text}
-    bot.send_message(message.chat.id, "Вкажіть марку та модель вашого авто (або напишіть 'Ні'):")
+    user_data[message.chat.id]['contact'] = message.text
+    bot.send_message(message.chat.id, "Вкажіть марку та модель вашого авто:")
     bot.register_next_step_handler(message, process_car)
 
 def process_car(message):
-    chat_id = message.chat.id
-    if chat_id in user_data:
-        user_data[chat_id]['car'] = message.text
-    
-    text = "Оберіть послугу, на яку хочете записатися:"
-    bot.send_message(chat_id, text, reply_markup=services_menu())
+    user_data[message.chat.id]['car'] = message.text
+    bot.send_message(message.chat.id, "На яку *дату та час* вам зручно записатися? (наприклад: Завтра о 14:00):")
+    bot.register_next_step_handler(message, process_datetime)
+
+def process_datetime(message):
+    user_data[message.chat.id]['datetime'] = message.text
+    bot.send_message(message.chat.id, "Оберіть послугу, на яку хочете записатися:", reply_markup=services_menu())
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('service_'))
 def handle_service_selection(call):
@@ -102,12 +114,14 @@ def handle_service_selection(call):
     if chat_id in user_data and 'contact' in user_data[chat_id]:
         contact = user_data[chat_id].get('contact', 'Не вказано')
         car = user_data[chat_id].get('car', 'Не вказано')
+        dt = user_data[chat_id].get('datetime', 'Не вказано')
         
-        # Уведомление администратору
+        # Отправка заявки администратору в ЛС
         admin_text = (
-            f"🚀 *НОВА ЗАЯВКА НА ЗАПИС!*\n\n"
+            f"🚀 *НОВА ЗАЯВКА НА ЗАПИС! (dd73_detailing)*\n\n"
             f"👤 *Клієнт:* {contact}\n"
             f"🚗 *Авто:* {car}\n"
+            f"📅 *Бажаний час:* {dt}\n"
             f"🛠 *Послуга:* {service_name}\n"
             f"💰 *Ціна:* {service_info.get('price', '')}"
         )
@@ -116,18 +130,19 @@ def handle_service_selection(call):
         except Exception as e:
             print(f"Ошибка отправки админу: {e}")
             
-        # Подтверждение клиенту
+        # Ответ клиенту
         client_text = (
-            f"✅ *Дякуємо! Твою заявку прийнято.*\n\n"
-            f"🛠 *Обрана послуга:* {service_name}\n"
-            f"Ми зв'яжемося з тобою найближчим часом для уточнення часу!"
+            f"✅ *Дякуємо! Вашу заявку прийнято.*\n\n"
+            f"🛠 *Послуга:* {service_name}\n"
+            f"📅 *Запит на час:* {dt}\n\n"
+            f"Ми зв'яжемося з вами найближчим часом для підтвердження!"
         )
         bot.send_message(chat_id, client_text, parse_mode="Markdown")
         user_data.pop(chat_id, None)
     else:
-        text = f"Вы выбрали: *{service_name}* ({service_info.get('price', '')}).\nНажмите '📅 Записатися' в главном меню, чтобы оставить заявку!"
+        text = f"Ви обрали: *{service_name}* ({service_info.get('price', '')}).\nНатисніть '📅 Записатися' у головному меню, щоб оформити запис!"
         bot.send_message(chat_id, text, parse_mode="Markdown")
 
 if __name__ == '__main__':
-    print("Бот запущен...")
+    print("Бот dd73_detailing запущен...")
     bot.infinity_polling()
