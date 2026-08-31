@@ -1,7 +1,25 @@
+import os
+import threading
+from flask import Flask
 import telebot
 from telebot.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
-# —— НАЛАШТУВАННЯ БОТА ——
+# —— 1. ФЕЙКОВЫЙ СЕРВЕР ДЛЯ RENDER (ЗАПУСКАЕТСЯ СРАЗУ) ——
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "OK", 200
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+# Запускаем веб-сервер в отдельном потоке ДО бота
+threading.Thread(target=run_flask, daemon=True).start()
+
+
+# —— 2. НАСТРОЙКИ И ДАННЫЕ БОТА ——
 BOT_TOKEN = "8721602640:AAG5kjtNor9RJUGfDkRSXtAUz_lsikNPxA4"
 ADMIN_ID = 1213392194
 
@@ -9,7 +27,6 @@ bot = telebot.TeleBot(BOT_TOKEN)
 SHOP_NAME = "dd73_detailing"
 TG_CHANNEL = "https://t.me/dd73_detailing"
 
-# —— ДАНІ ПОСЛУГ ——
 SERVICES = {
     'wash': {'name': '🧽 Детейлінг мийка кузова', 'price': 'від 600 грн'},
     'clean': {'name': '🧹 Глибока хімчистка салону', 'price': 'від 3000 грн'},
@@ -19,26 +36,19 @@ SERVICES = {
     'antirain': {'name': '🌧 Покриття «Антидощ»', 'price': '800 грн'}
 }
 
-# Доступні слоти часу (за замовчуванням вільні)
 DEFAULT_TIMES = ["10:00", "12:00", "14:00", "16:00", "18:00"]
-time_slots = {t: True for t in DEFAULT_TIMES}  # True = ВІЛЬНО, False = ЗАЙНЯТО
-
-# База тимчасових даних та заявок
+time_slots = {t: True for t in DEFAULT_TIMES}
 user_data = {}
 all_orders = []
 
-# —— КЛАВІАТУРИ ——
-
+# —— 3. КЛАВИАТУРЫ ——
 def get_main_menu(user_id):
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row("🚗 Послуги та ціни", "📅 Записатися")
     markup.row("📍 Де ми знаходимось", "📞 Контакти")
     markup.row("💬 Наш Telegram-канал / Відгуки")
-    
-    # Кнопка адміністратора відображається тільки для вас
     if str(user_id) == str(ADMIN_ID):
         markup.row("👑 Панель Адміністратора")
-        
     return markup
 
 def get_days_keyboard():
@@ -52,18 +62,11 @@ def get_days_keyboard():
 
 def get_available_time_keyboard():
     markup = InlineKeyboardMarkup()
-    buttons = []
-    for t, is_free in time_slots.items():
-        if is_free:
-            buttons.append(InlineKeyboardButton(f"🟢 {t}", callback_data=f"time_{t}"))
-    
+    buttons = [InlineKeyboardButton(f"🟢 {t}", callback_data=f"time_{t}") for t, is_free in time_slots.items() if is_free]
     if not buttons:
         return None
-    
-    # Розміщуємо по 2-3 кнопки в рядок
     for i in range(0, len(buttons), 2):
         markup.row(*buttons[i:i+2])
-        
     return markup
 
 def get_admin_slots_keyboard():
@@ -76,19 +79,15 @@ def get_admin_slots_keyboard():
 def services_menu():
     markup = InlineKeyboardMarkup()
     for key, item in SERVICES.items():
-        btn = InlineKeyboardButton(f"{item['name']} — {item['price']}", callback_data=f"service_{key}")
-        markup.add(btn)
+        markup.add(InlineKeyboardButton(f"{item['name']} — {item['price']}", callback_data=f"service_{key}"))
     return markup
 
 def channel_inline_menu():
     markup = InlineKeyboardMarkup()
-    btn = InlineKeyboardButton("📢 Перейти у Telegram-канал", url=TG_CHANNEL)
-    markup.add(btn)
+    markup.add(InlineKeyboardButton("📢 Перейти у Telegram-канал", url=TG_CHANNEL))
     return markup
 
-
-# —— ОБРОБНИКИ КОМАНД ТА КНОПОК МЕНЮ ——
-
+# —— 4. ОБРАБОТЧИКИ ——
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_data.pop(message.chat.id, None)
@@ -105,11 +104,7 @@ def admin_panel(message):
         markup = ReplyKeyboardMarkup(resize_keyboard=True)
         markup.row("⚙️ Керування слотами часу", "📥 Всі записи")
         markup.row("⬅️ Повернутися в головне меню")
-        
-        text = (
-            "👑 *Панель Адміністратора dd73_detailing*\n\n"
-            "Тут ви можете керувати вільним часом для запису та переглядати нові заявки."
-        )
+        text = "👑 *Панель Адміністратора dd73_detailing*\n\nТут ви можете керувати вільним часом для запису та переглядати нові заявки."
         bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=markup)
     else:
         bot.send_message(message.chat.id, "⛔ У вас немає доступу до цієї панелі.")
@@ -140,7 +135,6 @@ def show_all_orders(message):
         if not all_orders:
             bot.send_message(message.chat.id, "📭 Наразі немає активних записів.")
             return
-        
         text = "📋 *Останні записи клієнтів:*\n\n"
         for idx, order in enumerate(reversed(all_orders[-10:]), 1):
             text += (
@@ -182,9 +176,7 @@ def show_channel(message):
     text = "📢 Підписуйтесь на наш офіційний канал, щоб дивитися фото робіт, результати до/після та читати відгуки:"
     bot.send_message(message.chat.id, text, reply_markup=channel_inline_menu())
 
-
-# —— КРОКОВИЙ ПРОЦЕС ЗАПИСУ КЛІЄНТА ——
-
+# —— 5. ЗАПИСЬ ——
 @bot.message_handler(func=lambda message: message.text == "📅 Записатися")
 def start_booking(message):
     user_data[message.chat.id] = {}
@@ -206,12 +198,10 @@ def handle_day_selection(call):
     chat_id = call.message.chat.id
     if chat_id in user_data:
         user_data[chat_id]['day'] = day
-        
         time_kb = get_available_time_keyboard()
         if not time_kb:
             bot.edit_message_text("На жаль, на цей день немає вільних слотів часу. Зв'яжіться з нами за телефоном.", chat_id, call.message.message_id)
             return
-            
         bot.edit_message_text(f"Обрано день: *{day}*\nТепер оберіть зручний час з доступних:", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=time_kb)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('time_'))
@@ -227,7 +217,6 @@ def handle_service_selection(call):
     service_key = call.data.replace('service_', '')
     service_info = SERVICES.get(service_key, {})
     service_name = service_info.get('name', 'Послуга')
-    
     chat_id = call.message.chat.id
     
     if chat_id in user_data and 'contact' in user_data[chat_id]:
@@ -236,21 +225,11 @@ def handle_service_selection(call):
         day = user_data[chat_id].get('day', 'Не вказано')
         time_val = user_data[chat_id].get('time', 'Не вказано')
         
-        # Автоматично маркуємо обраний час як ЗАЙНЯТИЙ
         if time_val in time_slots:
             time_slots[time_val] = False
             
-        # Записуємо в історію
-        order_entry = {
-            'contact': contact,
-            'car': car,
-            'day': day,
-            'time': time_val,
-            'service': service_name
-        }
-        all_orders.append(order_entry)
+        all_orders.append({'contact': contact, 'car': car, 'day': day, 'time': time_val, 'service': service_name})
         
-        # 1. Надсилаємо сповіщення Адміну в ЛС
         admin_text = (
             f"🚨 *НОВА ЗАЯВКА НА ЗАПИС! (dd73_detailing)*\n\n"
             f"👤 *Клієнт:* {contact}\n"
@@ -264,7 +243,6 @@ def handle_service_selection(call):
         except Exception as e:
             print(f"Помилка відправки адміну: {e}")
             
-        # 2. Підтвердження для клієнта
         client_text = (
             f"✅ *Дякуємо за запис! Ми чекаємо на вас!*\n\n"
             f"🛠 *Послуга:* {service_name}\n"
@@ -279,5 +257,5 @@ def handle_service_selection(call):
         bot.send_message(chat_id, text, parse_mode="Markdown")
 
 if __name__ == '__main__':
-    print("Бот dd73_detailing успішно запущений...")
+    print("Бот запущений...")
     bot.infinity_polling()
