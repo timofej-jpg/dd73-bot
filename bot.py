@@ -3,7 +3,7 @@ from telebot.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeybo
 
 # —— НАСТРОЙКИ БОТА ——
 # Твой токен от @BotFather
-BOT_TOKEN = "8721602640:AAFDAUZpGo3_uKrcG-7KZSHePBwItgYxJ-Q"
+BOT_TOKEN = "8721602640:AAG5kjtNor9RJUGfDkRSXtAUz_lsikNPxA4"
 
 # Твой ID в Telegram
 ADMIN_ID = 1213392194
