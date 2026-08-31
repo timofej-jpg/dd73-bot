@@ -1,11 +1,11 @@
 import telebot
-from telebot.types import ReplyKeyboardMarkup, KeyboardMarkup, InlineKeyboardButton
+from telebot.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
-# ——— НАСТРОЙКИ БОТА ———
-# Вставь сюда свой токен (HTTP API), который дал @BotFather
-BOT_TOKEN = "8721602640:AAFDAUZpGo3_uKrcG-7KZSHePBwItgYxJ-Q"
+# —— НАСТРОЙКИ БОТА ——
+# Твой токен от @BotFather
+BOT_TOKEN = "8721602640:AAFDAUzPGo3_uKrcG-7KZSHePBwItgYxJ-Q"
 
-# Твой ID в Telegram (чтобы получать уведомления о заявках)
+# Твой ID в Telegram
 ADMIN_ID = 1213392194
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -13,154 +13,121 @@ bot = telebot.TeleBot(BOT_TOKEN)
 # Название твоей студии
 SHOP_NAME = "DD73 Detailing"
 
-# ——— ДАННЫЕ УСЛУГ (Прайс-лист) ———
-# Убраны спецсимволы, чтобы бот не выдавал ошибку Markdown
+# —— ДАННЫЕ УСЛУГ (Прайс-лист) ——
 SERVICES = {
     'wash': {'name': 'Професійне миття кузова', 'price': 'від 500 грн'},
     'clean': {'name': 'Хімчистка салону', 'price': 'від 2500 грн'},
     'polish': {'name': 'Полірування кузова', 'price': 'від 4000 грн'},
-    'ceramic': {'name': 'Керамічне покриття', 'price': 'від 8000 грн'},
-    'engine': {'name': 'Миття двигуна (з гарантією)', 'price': 'від 1200 грн'},
-    'anti_rain': {'name': 'Антидощ (лобове)', 'price': '600 грн'},
+    'ceramic': {'name': 'Нанесення кераміки (з гарантією)', 'price': 'від 8000 грн'},
+    'antirain': {'name': 'Антидощ (лобове)', 'price': '600 грн'},
+    'engine': {'name': 'Детейлінг мийка двигуна', 'price': 'від 1200 грн'}
 }
 
-# Временное хранилище заявок (пока бот запущен)
-user_requests = {}
+user_data = {}
 
-# ——— КЛАВИАТУРЫ (Меню) ———
-
-# Главное меню
-def get_main_keyboard():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    btn_price = "💰 Послуги та ціни"
-    btn_record = "📅 Записатися"
-    btn_loc = "📍 Де ми знаємось?"
-    btn_inst = "📸 Instagram"
-    markup.add(btn_price, btn_record, btn_loc, btn_inst)
+# —— КЛАВИАТУРЫ ——
+def main_menu():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("🚗 Послуги та ціни", "📅 Записатися")
+    markup.row("📍 Де ми знаходимся", "📞 Контакти")
     return markup
 
-# Инлайн-кнопки для выбора услуги при записи
-def get_services_inline():
-    markup = KeyboardMarkup(row_width=1)
-    # Создаем кнопки по очереди
-    for key, service in SERVICES.items():
-        # В callback_data зашиваем 'book_' + ключ услуги (например, 'book_wash')
-        btn = InlineKeyboardButton(text=service['name'], callback_data=f"book_{key}")
+def services_menu():
+    markup = InlineKeyboardMarkup()
+    for key, item in SERVICES.items():
+        btn = InlineKeyboardButton(f"{item['name']} — {item['price']}", callback_data=f"service_{key}")
         markup.add(btn)
     return markup
 
-# ——— ОБРАБОТЧИКИ (Команды и текст) ———
-
-# Команда /start
+# —— ОБРАБОТЧИКИ КОМАНД ——
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    welcome_text = (
-        f"Вітаємо у {SHOP_NAME}!\n\n"
-        "Ваше авто заслуговує на найкращий догляд. Оберіть пункт меню:"
-    )
-    # Отправляем фото (если есть ссылка, или просто текст)
-    try:
-        # Можешь вставить прямую ссылку на фото авто в кавычки ниже
-        # bot.send_photo(message.chat.id, "ССЫЛКА_НА_ФОТО", caption=welcome_text, reply_markup=get_main_keyboard())
-        bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard())
-    except:
-        bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard())
-
-# --- ИСПРАВЛЕННЫЙ ПРАЙС-ЛИСТ (Без Markdown) ---
-@bot.message_handler(func=lambda message: message.text == "💰 Послуги та ціни")
-def send_prices(message):
-    # Создаем простой текст прайса без звездочек и форматирования
-    text = f"💳 ПРАЙС-ЛИСТ {SHOP_NAME}:\n\n"
-    
-    # Перебираем услуги и добавляем их простым текстом
-    for key, service in SERVICES.items():
-        text += f"• {service['name']} — {service['price']}\n"
-    
-    text += "\n* Точна вартість залежить від класу та стану автомобіля."
-    
-    # Отправляем БЕЗ parse_mode, чтобы Markdown не ломал бота
-    bot.send_message(message.chat.id, text)
-
-# Локация
-@bot.message_handler(func=lambda message: message.text == "📍 Де ми знаємось?")
-def send_location(message):
+    user_data.pop(message.chat.id, None)
     text = (
-        f"{SHOP_NAME}\n\n"
-        "📍 Адреса: [ВСТАВ СВОЮ АДРЕСУ ТУТ]\n\n"
-        "Працюємо: Пн-Сб, 09:00 - 19:00\n\n"
-        "Чекаємо на Вас!"
+        f"Вітаємо у студії детейлінгу *{SHOP_NAME}*! 👋\n\n"
+        "Оберіть потрібный розділ у меню нижче:"
     )
-    bot.send_message(message.chat.id, text)
+    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=main_menu())
 
-# Instagram
-@bot.message_handler(func=lambda message: message.text == "📸 Instagram")
-def send_instagram(message):
-    bot.send_message(message.chat.id, "Наш Instagram: https://instagram.com/dd73_detailing")
+@bot.message_handler(func=lambda message: message.text == "🚗 Послуги та ціни")
+def show_services(message):
+    text = "📋 *Наші послуги та орієнтовні ціни:*\nВыберите услугу для детальной информации или записи:"
+    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=services_menu())
 
-# ——— БЛОК ЗАПИСИ (FSM) ———
+@bot.message_handler(func=lambda message: message.text == "📍 Де ми знаходимся")
+def show_location(message):
+    text = (
+        f"🏢 *Студія детейлінгу {SHOP_NAME}*\n"
+        "📍 Одеса / Фонтанка\n"
+        "⏰ Працюємо за попереднім записом с 9:00 до 19:00"
+    )
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
-# Шаг 1: Нажатие кнопки "Записатися" -> Показываем инлайн-услуги
+@bot.message_handler(func=lambda message: message.text == "📞 Контакти")
+def show_contacts(message):
+    text = (
+        "📞 *Зв'язок з нами:*\n\n"
+        "Телефон / Telegram / Viber: +380XXXXXXXXX\n"
+        "Пишіть або телефонуйте з будь-яких питань!"
+    )
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
 @bot.message_handler(func=lambda message: message.text == "📅 Записатися")
 def start_booking(message):
-    user_requests[message.chat.id] = {}  # Создаем пустую заявку
-    text = "Оберіть послугу, на яку бажаєте записатися:"
-    bot.send_message(message.chat.id, text, reply_markup=get_services_inline())
+    user_data[message.chat.id] = {}
+    bot.send_message(message.chat.id, "Введіть ваше *Ім'я* та *номер телефону* для зв'язку:")
+    bot.register_next_step_handler(message, process_contact)
 
-# Шаг 2: Обработка выбора услуги (Inline-кнопки)
-@bot.callback_query_handler(func=lambda call: call.data.startswith('book_'))
-def callback_service(call):
-    # Убираем 'book_' из call.data, получаем ключ ('wash', 'clean' и т.д.)
-    service_key = call.data.replace('book_', '')
-    
-    if service_key in SERVICES:
-        # Сохраняем имя услуги в заявку
-        user_requests[call.message.chat.id]['service'] = SERVICES[service_key]['name']
-        
-        # Убираем инлайн-кнопки
-        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
-        
-        # Просим телефон
-        msg = bot.send_message(call.message.chat.id, "Введіть, будь ласка, Ваш номер телефону (або залиште Ваш нікнейм у Telegram):")
-        bot.register_next_step_handler(msg, process_phone)
-    else:
-        bot.answer_callback_query(call.id, "Помилка. Спробуйте ще раз.")
+def process_contact(message):
+    user_data[message.chat.id] = {'contact': message.text}
+    bot.send_message(message.chat.id, "Вкажіть марку та модель вашого авто (або напишіть 'Ні'):")
+    bot.register_next_step_handler(message, process_car)
 
-# Шаг 3: Получение телефона и завершение заявки
-def process_phone(message):
+def process_car(message):
     chat_id = message.chat.id
-    phone_or_nick = message.text
+    if chat_id in user_data:
+        user_data[chat_id]['car'] = message.text
     
-    if chat_id not in user_requests or 'service' not in user_requests[chat_id]:
-        bot.send_message(chat_id, "Сталася помилка. Розпочніть запис спочатку.", reply_markup=get_main_keyboard())
-        return
+    text = "Оберіть послугу, на яку хочете записатися:"
+    bot.send_message(chat_id, text, reply_markup=services_menu())
 
-    # Сохраняем контакт
-    service_name = user_requests[chat_id]['service']
+@bot.callback_query_handler(func=lambda call: call.data.startswith('service_'))
+def handle_service_selection(call):
+    service_key = call.data.replace('service_', '')
+    service_info = SERVICES.get(service_key, {})
+    service_name = service_info.get('name', 'Невідома послуга')
     
-    # 1. Ответ пользователю
-    bot.send_message(
-        chat_id, 
-        f"Дякуємо! Вашу заявку на '{service_name}' прийнято.\n\nМенеджер зв'яжеться з Вами найближчим часом для уточнення деталей.", 
-        reply_markup=get_main_keyboard()
-    )
+    chat_id = call.message.chat.id
     
-    # 2. Уведомление АДМИНУ (в твой личный Telegram)
-    admin_text = (
-        f"🚨 НОВА ЗАЯВКА!\n\n"
-        f"👤 Клієнт: {message.from_user.first_name} (@{message.from_user.username})\n"
-        f"🔧 Услуга: {service_name}\n"
-        f"📞 Контакт: {phone_or_nick}"
-    )
-    try:
-        bot.send_message(ADMIN_ID, admin_text)
-    except:
-        print("Помилка відправки повідомлення адміну. Перевір ADMIN_ID.")
+    if chat_id in user_data and 'contact' in user_data[chat_id]:
+        contact = user_data[chat_id].get('contact', 'Не вказано')
+        car = user_data[chat_id].get('car', 'Не вказано')
         
-    # Очищаем временную заявку
-    del user_requests[chat_id]
+        # Уведомление администратору
+        admin_text = (
+            f"🚀 *НОВА ЗАЯВКА НА ЗАПИС!*\n\n"
+            f"👤 *Клієнт:* {contact}\n"
+            f"🚗 *Авто:* {car}\n"
+            f"🛠 *Послуга:* {service_name}\n"
+            f"💰 *Ціна:* {service_info.get('price', '')}"
+        )
+        try:
+            bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
+        except Exception as e:
+            print(f"Ошибка отправки админу: {e}")
+            
+        # Подтверждение клиенту
+        client_text = (
+            f"✅ *Дякуємо! Твою заявку прийнято.*\n\n"
+            f"🛠 *Обрана послуга:* {service_name}\n"
+            f"Ми зв'яжемося з тобою найближчим часом для уточнення часу!"
+        )
+        bot.send_message(chat_id, client_text, parse_mode="Markdown")
+        user_data.pop(chat_id, None)
+    else:
+        text = f"Вы выбрали: *{service_name}* ({service_info.get('price', '')}).\nНажмите '📅 Записатися' в главном меню, чтобы оставить заявку!"
+        bot.send_message(chat_id, text, parse_mode="Markdown")
 
-# ——— ЗАПУСК ———
 if __name__ == '__main__':
-    print(f"Бот {SHOP_NAME} успешно запущен на телефоне!")
-    # Бот будет постоянно опрашивать сервера Telegram на наличие новых сообщений
+    print("Бот запущен...")
     bot.infinity_polling()
