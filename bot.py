@@ -122,7 +122,7 @@ def schedule_2h_reminder(chat_id, service_name, day, time_val):
         except Exception as e:
             print(f"Помилка відправки нагадування: {e}")
 
-    threading.Timer(15.0, send_remind).start()
+    threading.Timer(7200.0, send_remind).start()
 
 
 # —— 5. ОБРАБОТЧИКИ КОМАНД ——
