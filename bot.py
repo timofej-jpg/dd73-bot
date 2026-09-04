@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, F, types
@@ -16,8 +17,9 @@ from aiogram.types import (
 # -------------------------------------------------------------
 # НАСТРОЙКИ
 # -------------------------------------------------------------
-BOT_TOKEN = "8721602640:AAFDAUZpGo3_uKrcG-7KZSHePBwItgYxJ-Q"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 1213392194
+
 
 WAZE_URL = "https://waze.com/ul/hu8mb6vg0f"
 GOOGLE_MAPS_URL = "https://maps.app.goo.gl/TJWZ8gNNJfeNVpAJ9?g_st=ic"
