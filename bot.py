@@ -1,341 +1,194 @@
-import os
-import threading
-from datetime import datetime, timedelta
-from flask import Flask
-import telebot
-from telebot.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
-from apscheduler.schedulers.background import BackgroundScheduler
+import asyncio
+import logging
+from aiogram import Bot, Dispatcher, F, types
+from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
 
-# —— 1. ФЕЙКОВЫЙ СЕРВЕР ДЛЯ RENDER ——
-app = Flask(__name__)
+# -------------------------------------------------------------
+# НАСТРОЙКИ (Замени на свои данные)
+# -------------------------------------------------------------
+BOT_TOKEN = "8721602640:AAFDAUZpGo3_uKrcG-7KZSHePBwItgYxJ-Q"
+ADMIN_ID = 1213392194 # Твой Telegram ID или ID администратора студии
 
-@app.route('/')
-def home():
-    return "OK", 200
+WAZE_URL = "https://waze.com/ul/hu8mb6vg0f"
+GOOGLE_MAPS_URL = "https://maps.app.goo.gl/TJWZ8gNNJfeNVpAJ9?g_st=ic"
 
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+# -------------------------------------------------------------
+# СОСТОЯНИЯ (FSM)
+# -------------------------------------------------------------
+class BookingState(StatesGroup):
+    waiting_for_service = State()
+    waiting_for_contact = State()
 
-threading.Thread(target=run_flask, daemon=True).start()
-
-
-# —— 2. НАСТРОЙКИ И ДАННЫЕ ——
-BOT_TOKEN = "8721602640:AAG5kjtNor9RJUGfDkRSXtAUz_lsikNPxA4"
-ADMIN_ID = 1213392194
-
-bot = telebot.TeleBot(BOT_TOKEN)
-SHOP_NAME = "dd73_detailing"
-TG_CHANNEL = "https://t.me/dd73_detailing"
-
-SERVICES = {
-    'wash': {'name': '🧽 Детейлінг мийка кузова', 'price': 'від 600 грн'},
-    'clean': {'name': '🧹 Глибока хімчистка салону', 'price': 'від 3000 грн'},
-    'polish': {'name': '✨ Полірування кузова', 'price': 'від 4500 грн'},
-    'ceramic': {'name': '🛡 Нанесення кераміки', 'price': 'від 8500 грн'},
-    'ppf': {'name': '🚗 Бронеплівка (PPF)', 'price': 'від 12000 грн'},
-    'antirain': {'name': '🌧 Покриття «Антидощ»', 'price': '800 грн'}
-}
-
-DEFAULT_TIMES = ["10:00", "12:00", "14:00", "16:00", "18:00"]
-time_slots = {t: True for t in DEFAULT_TIMES}
-user_data = {}
-all_orders = []
-registered_clients = set()
-
-
-# —— 3. КЛАВИАТУРЫ ——
-def get_main_menu(user_id):
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("🚗 Послуги та ціни", "📅 Записатися")
-    markup.row("📍 Де ми знаходимось", "📞 Контакти")
-    markup.row("💬 Наш Telegram-канал / Відгуки")
-    if str(user_id) == str(ADMIN_ID):
-        markup.row("👑 Панель Адміністратора")
-    return markup
-
-def get_days_keyboard():
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton("Сьогодні", callback_data="day_Сьогодні"),
-        InlineKeyboardButton("Завтра", callback_data="day_Завтра"),
-        InlineKeyboardButton("Післязавтра", callback_data="day_Післязавтра")
+# -------------------------------------------------------------
+# КЛАВИАТУРЫ
+# -------------------------------------------------------------
+def get_main_keyboard():
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📅 Записатися на сервіс")],
+            [KeyboardButton(text="📌 Де ми знаходимось"), KeyboardButton(text="📞 Контакти")]
+        ],
+        resize_keyboard=True
     )
-    return markup
+    return keyboard
 
-def get_available_time_keyboard():
-    markup = InlineKeyboardMarkup()
-    buttons = [InlineKeyboardButton(f"🟢 {t}", callback_data=f"time_{t}") for t, is_free in time_slots.items() if is_free]
-    if not buttons:
-        return None
-    for i in range(0, len(buttons), 2):
-        markup.row(*buttons[i:i+2])
-    return markup
-
-def get_admin_slots_keyboard():
-    markup = InlineKeyboardMarkup()
-    for t, is_free in time_slots.items():
-        status = "🟢 Вільний" if is_free else "🔴 Зайнятий"
-        markup.add(InlineKeyboardButton(f"{t} — {status}", callback_data=f"{'toggle_slot_' + t}"), )
-    return markup
-
-def services_menu():
-    markup = InlineKeyboardMarkup()
-    for key, item in SERVICES.items():
-        markup.add(InlineKeyboardButton(f"{item['name']} — {item['price']}", callback_data=f"service_{key}"))
-    return markup
-
-def reschedule_keyboard():
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🔄 Перенести / Змінити час запису", callback_data="reschedule_booking"))
-    return markup
-
-
-# —— 4. ФОНОВЫЕ НАПОМИНАНИЯ (SCHEDULER) ——
-scheduler = BackgroundScheduler()
-
-def send_monthly_reminders():
-    text = (
-        f"👋 Вітаємо від студії *{SHOP_NAME}*!\n\n"
-        "✨ Минув місяць з вашого останнього візиту. Ваше авто заслуговує на якісний догляд та чистоту!\n\n"
-        "Запишіться на мийку або дітейлінг прямо зараз у пару кліків 👇"
+def get_location_inline_keyboard():
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🗺 Відкрити в Google Maps", url=GOOGLE_MAPS_URL)],
+            [InlineKeyboardButton(text="🚘 Відкрити в Waze", url=WAZE_URL)]
+        ]
     )
-    for client_id in registered_clients:
-        try:
-            bot.send_message(client_id, text, parse_mode="Markdown")
-        except Exception as e:
-            print(f"Помилка розсилки клієнту {client_id}: {e}")
+    return keyboard
 
-scheduler.add_job(send_monthly_reminders, 'interval', days=30)
-scheduler.start()
-
-def schedule_2h_reminder(chat_id, service_name, day, time_val):
-    def send_remind():
-        text = (
-            f"⏰ *НАГАДУВАННЯ ПРО ЗАПИС!*\n\n"
-            f"Чекаємо на вас сьогодні на послугу *{service_name}* о *{time_val}*!\n"
-            f"📍 Адреса: вул. Дюківська 3, Одеса.\n\n"
-            f"Якщо змінюються плани — будь ласка, повідомте нас заздалегідь."
-        )
-        try:
-            bot.send_message(chat_id, text, parse_mode="Markdown")
-        except Exception as e:
-            print(f"Помилка відправки нагадування: {e}")
-
-    threading.Timer(7200.0, send_remind).start()
-
-
-# —— 5. ОБРАБОТЧИКИ КОМАНД ——
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    bot.clear_step_handler_by_chat_id(message.chat.id)
-    user_data.pop(message.chat.id, None)
-    text = (
-        f"Вітаємо у студії детейлінгу *{SHOP_NAME}*! 🔥\n\n"
-        "✨ ДЕТЕЙЛІНГ | ХІМЧИСТКА | ПОЛІРУВАННЯ | КЕРАМІКА | БРОНЕПЛІВКА ✨\n\n"
-        "Оберіть потрібний розділ у меню нижче:"
+def get_contact_request_keyboard():
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📱 Поділитися контактом", request_contact=True)],
+            [KeyboardButton(text="❌ Скасувати")]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True
     )
-    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=get_main_menu(message.from_user.id))
+    return keyboard
 
-@bot.message_handler(func=lambda message: message.text == "👑 Панель Адміністратора")
-def admin_panel(message):
-    if str(message.from_user.id) == str(ADMIN_ID):
-        markup = ReplyKeyboardMarkup(resize_keyboard=True)
-        markup.row("⚙️ Керування слотами часу", "📥 Всі записи")
-        markup.row("📢 Запустити щомісячне нагадування")
-        markup.row("⬅️ Повернутися в головне меню")
-        text = "👑 *Панель Адміністратора dd73_detailing*\n\nТут ви можете керувати вільним часом, переглядати заявки та запускати розсилку."
-        bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=markup)
-    else:
-        bot.send_message(message.chat.id, "⛔ У вас немає доступу до цієї панелі.")
-
-@bot.message_handler(func=lambda message: message.text == "📢 Запустити щомісячне нагадування")
-def manual_reminder(message):
-    if str(message.from_user.id) == str(ADMIN_ID):
-        send_monthly_reminders()
-        bot.send_message(message.chat.id, "✅ Нагадування успішно розіслано всім клієнтам!")
-
-@bot.message_handler(func=lambda message: message.text == "⬅️ Повернутися в головне меню")
-def back_to_main(message):
-    bot.clear_step_handler_by_chat_id(message.chat.id)
-    bot.send_message(message.chat.id, "Ви повернулися в головне меню:", reply_markup=get_main_menu(message.from_user.id))
-
-@bot.message_handler(func=lambda message: message.text == "⚙️ Керування слотами часу")
-def manage_slots(message):
-    if str(message.from_user.id) == str(ADMIN_ID):
-        text = "⚙️ *Налаштування розкладу (натисніть на слот, щоб змінити його статус):*"
-        bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=get_admin_slots_keyboard())
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('toggle_slot_'))
-def toggle_slot(call):
-    if str(call.from_user.id) == str(ADMIN_ID):
-        slot = call.data.replace('toggle_slot_', '')
-        if slot in time_slots:
-            time_slots[slot] = not time_slots[slot]
-            status_text = "вільний 🟢" if time_slots[slot] else "зайнятий 🔴"
-            bot.answer_callback_query(call.id, f"Слот {slot} тепер {status_text}!")
-            bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=get_admin_slots_keyboard())
-
-@bot.message_handler(func=lambda message: message.text == "📥 Всі записи")
-def show_all_orders(message):
-    if str(message.from_user.id) == str(ADMIN_ID):
-        if not all_orders:
-            bot.send_message(message.chat.id, "📭 Наразі немає активних записів.")
-            return
-        text = "📋 *Останні записи клієнтів:*\n\n"
-        for idx, order in enumerate(reversed(all_orders[-10:]), 1):
-            text += (
-                f"*{idx}. {order['service']}*\n"
-                f"👤 Клієнт: {order['contact']}\n"
-                f"🚗 Авто: {order['car']}\n"
-                f"📅 Час: {order['day']} о {order['time']}\n"
-                "-----------------------------------\n"
-            )
-        bot.send_message(message.chat.id, text, parse_mode="Markdown")
-
-@bot.message_handler(func=lambda message: message.text == "🚗 Послуги та ціни")
-def show_services(message):
-    text = "📋 *Наші послуги та прайс:*\nОберіть послугу для детальної інформації або запису:"
-    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=services_menu())
-
-@bot.message_handler(func=lambda message: message.text == "📍 Де ми знаходимось")
-def show_location(message):
-    text = (
-        f"🏢 *Студія детейлінгу {SHOP_NAME}*\n\n"
-        "📍 *Адреса:* вул. Дюківська 3, Одеса\n"
-        "⏰ *Графік роботи:* 9:00 - 20:00 (за попереднім записом)"
+# Заглушка для услуг (завтра подставим реальный прайс и фото)
+def get_services_inline_keyboard():
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🧽 Хімчистка салону", callback_data="service_chem")],
+            [InlineKeyboardButton(text="✨ Полірування та кераміка", callback_data="service_polish")],
+            [InlineKeyboardButton(text="🧼 Комплексная мийка", callback_data="service_wash")]
+        ]
     )
-    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+    return keyboard
 
-@bot.message_handler(func=lambda message: message.text == "📞 Контакти")
-def show_contacts(message):
-    text = (
-        f"📞 *Контакти {SHOP_NAME}:*\n\n"
-        "❓ *З усіх питань:* 073 567 73 73\n"
-        "📍 *Адреса:* вул. Дюківська 3, Одеса\n"
-        "⏰ *Графік роботи:* Щодня з 9:00 до 20:00\n\n"
-        "Щоб записатися на послугу, скористайтеся кнопкою *«📅 Записатися»* у меню!"
+# -------------------------------------------------------------
+# ХЕНДЛЕРЫ
+# -------------------------------------------------------------
+dp = Dispatcher(storage=MemoryStorage())
+
+@dp.message(CommandStart())
+async def cmd_start(message: types.Message, state: FSMContext):
+    await state.clear()
+    await message.answer(
+        f"Вітаємо у **DD73 Detailing & Car Spa**! 🚘✨\n\n"
+        "Оберіть потрібный розділ у меню нижче:",
+        reply_markup=get_main_keyboard(),
+        parse_mode="Markdown"
     )
-    bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
-@bot.message_handler(func=lambda message: message.text == "💬 Наш Telegram-канал / Відгуки")
-def show_channel(message):
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("📢 Перейти у Telegram-канал", url=TG_CHANNEL))
-    bot.send_message(message.chat.id, "📢 Підписуйтесь на наш офіційний канал:", reply_markup=markup)
+# --- РАЗДЕЛ: ГЕОЛОКАЦИЯ ---
+@dp.message(F.text == "📌 Де ми знаходимось")
+async def show_location(message: types.Message):
+    await message.answer(
+        "📍 **Наша адреса:**\n"
+        "м. Одеса, вул. Дюківська, 3\n"
+        "**DD73 Detailing & Car Spa**\n\n"
+        "Оберіть зручний навігатор для побудови маршруту:",
+        reply_markup=get_location_inline_keyboard(),
+        parse_mode="Markdown"
+    )
 
+# --- РАЗДЕЛ: КОНТАКТЫ ---
+@dp.message(F.text == "📞 Контакти")
+async def show_contacts(message: types.Message):
+    await message.answer(
+        "📞 **Зв'язок з нами:**\n"
+        "Телефон: +380 XX XXX XX XX\n"
+        "Графік роботи: Щодня з 09:00 до 19:00\n\n"
+        "Завжди раді бачити вас!",
+        parse_mode="Markdown"
+    )
 
-# —— 6. ПРОЦЕСС ЗАПИСИ С ЧЕТКИМ ПОРЯДКОМ ——
-@bot.message_handler(func=lambda message: message.text == "📅 Записатися")
-def start_booking(message):
-    bot.clear_step_handler_by_chat_id(message.chat.id)
-    user_data[message.chat.id] = {'booking_in_progress': True}
-    bot.send_message(message.chat.id, "Будь ласка, введіть ваше *Ім'я* та *номер телефону* для зв'язку:", parse_mode="Markdown")
-    bot.register_next_step_handler(message, process_contact)
+# --- РАЗДЕЛ: ЗАПИСЬ НА СЕРВИС ---
+@dp.message(F.text == "📅 Записатися на сервіс")
+async def start_booking(message: types.Message, state: FSMContext):
+    await state.set_state(BookingState.waiting_for_service)
+    await message.answer(
+        "Оберіть послугу, яка вас цікавить:",
+        reply_markup=get_services_inline_keyboard()
+    )
 
-@bot.callback_query_handler(func=lambda call: call.data == "reschedule_booking")
-def reschedule_booking(call):
-    bot.answer_callback_query(call.id, "Переходимо до вибору нового часу...")
-    bot.clear_step_handler_by_chat_id(call.message.chat.id)
-    user_data[call.message.chat.id] = {'booking_in_progress': True}
-    bot.send_message(call.message.chat.id, "Будь ласка, введіть ваше *Ім'я* та *номер телефону* для зв'язку:", parse_mode="Markdown")
-    bot.register_next_step_handler(call.message, process_contact)
-
-def process_contact(message):
-    if message.text in ["🚗 Послуги та ціни", "📅 Записатися", "📍 Де ми знаходимось", "📞 Контакти", "💬 Наш Telegram-канал / Відгуки", "👑 Панель Адміністратора"]:
-        bot.clear_step_handler_by_chat_id(message.chat.id)
-        user_data.pop(message.chat.id, None)
-        bot.send_message(message.chat.id, "Запис скасовано. Оберіть пункт меню:", reply_markup=get_main_menu(message.from_user.id))
-        return
-
-    user_data[message.chat.id]['contact'] = message.text
-    bot.send_message(message.chat.id, "Вкажіть марку та модель вашого автомобіля:", parse_mode="Markdown")
-    bot.register_next_step_handler(message, process_car)
-
-def process_car(message):
-    if message.text in ["🚗 Послуги та ціни", "📅 Записатися", "📍 Де ми знаходимось", "📞 Контакти", "💬 Наш Telegram-канал / Відгуки", "👑 Панель Адміністратора"]:
-        bot.clear_step_handler_by_chat_id(message.chat.id)
-        user_data.pop(message.chat.id, None)
-        bot.send_message(message.chat.id, "Запис скасовано. Оберіть пункт меню:", reply_markup=get_main_menu(message.from_user.id))
-        return
-
-    user_data[message.chat.id]['car'] = message.text
-    bot.send_message(message.chat.id, "Оберіть зручний день для візиту:", reply_markup=get_days_keyboard())
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('day_'))
-def handle_day_selection(call):
-    day = call.data.replace('day_', '')
-    chat_id = call.message.chat.id
-    if chat_id in user_data and user_data[chat_id].get('booking_in_progress'):
-        user_data[chat_id]['day'] = day
-        time_kb = get_available_time_keyboard()
-        if not time_kb:
-            bot.edit_message_text("На жаль, на цей день немає вільних слотів часу.", chat_id, call.message.message_id)
-            return
-        bot.edit_message_text(f"Обрано день: *{day}*\nТепер оберіть зручний час:", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=time_kb)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('time_'))
-def handle_time_selection(call):
-    time_val = call.data.replace('time_', '')
-    chat_id = call.message.chat.id
-    if chat_id in user_data and user_data[chat_id].get('booking_in_progress'):
-        user_data[chat_id]['time'] = time_val
-        bot.edit_message_text(f"Обрано час: *{user_data[chat_id].get('day', '')} о {time_val}*\nТепер оберіть потрібну послугу:", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=services_menu())
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('service_'))
-def handle_service_selection(call):
-    service_key = call.data.replace('service_', '')
-    service_info = SERVICES.get(service_key, {})
-    service_name = service_info.get('name', 'Послуга')
-    chat_id = call.message.chat.id
+# Выбор услуги через inline-кнопку
+@dp.callback_query(BookingState.waiting_for_service, F.data.startswith("service_"))
+async def process_service_selection(callback: types.CallbackQuery, state: FSMContext):
+    services_map = {
+        "service_chem": "Хімчистка салону",
+        "service_polish": "Полірування та кераміка",
+        "service_wash": "Комплексная мийка"
+    }
+    selected_service = services_map.get(callback.data, "Послуга")
+    await state.update_data(selected_service=selected_service)
     
-    data = user_data.get(chat_id, {})
-    if data.get('booking_in_progress') and 'contact' in data and 'car' in data and 'day' in data and 'time' in data:
-        contact = data['contact']
-        car = data['car']
-        day = data['day']
-        time_val = data['time']
-        
-        if time_val in time_slots:
-            time_slots[time_val] = False
-            
-        all_orders.append({'contact': contact, 'car': car, 'day': day, 'time': time_val, 'service': service_name})
-        registered_clients.add(chat_id)
-        
-        admin_text = (
-            f"🚨 *НОВА ЗАЯВКА НА ЗАПИС! (dd73_detailing)*\n\n"
-            f"👤 *Клієнт:* {contact}\n"
-            f"🚗 *Марка та модель авто:* {car}\n"
-            f"📅 *Дата та час:* {day} о {time_val}\n"
-            f"🛠 *Послуга:* {service_name}\n"
-            f"💰 *Орієнтовна вартість:* {service_info.get('price', '')}"
-        )
-        try:
-            bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
-        except Exception as e:
-            print(f"Помилка відправки адміну: {e}")
-            
-        client_text = (
-            f"✅ *Дякуємо за запис! Ми чекаємо на вас!*\n\n"
-            f"🛠 *Послуга:* {service_name}\n"
-            f"📅 *Час візиту:* {day} о {time_val}\n"
-            f"📍 *Адреса:* вул. Дюківська 3, Одеса\n\n"
-            f"За 2 години до візиту ми надішлемо вам нагадування!\n"
-            f"Якщо у вас змінилися плани — ви можете змінити час нижче:"
-        )
-        bot.edit_message_text(client_text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=reschedule_keyboard())
-        
-        schedule_2h_reminder(chat_id, service_name, day, time_val)
-        user_data.pop(chat_id, None)
-    else:
-        text = (
-            f"ℹ️ *{service_name}*\n"
-            f"💰 Вартість: *{service_info.get('price', '')}*\n\n"
-            f"Щоб обрати дату та записатися на цю послугу, натисніть кнопку *«📅 Записатися»* у меню!"
-        )
-        bot.answer_callback_query(call.id)
-        bot.send_message(chat_id, text, parse_mode="Markdown")
+    await callback.answer()
+    await state.set_state(BookingState.waiting_for_contact)
+    
+    # Запрос контакта в один клик
+    await callback.message.answer(
+        f"Ви обрали: **{selected_service}**.\n\n"
+        "Натисніть кнопку нижче **«📱 Поділитися контактом»**, щоб ми могли підтвердити вашу заявку та узгодити час:",
+        reply_markup=get_contact_request_keyboard(),
+        parse_mode="Markdown"
+    )
 
-if __name__ == '__main__':
-    print("Бот із повним функціоналом запущений...")
-    bot.infinity_polling()
+# Получение контакта (автоматически через кнопке)
+@dp.message(BookingState.waiting_for_contact, F.contact)
+async def process_contact(message: types.Message, state: FSMContext, bot: Bot):
+    user_data = await state.get_data()
+    service = user_data.get("selected_service", "Не вказано")
+    
+    phone_number = message.contact.phone_number
+    first_name = message.contact.first_name or message.from_user.first_name
+    username = f"@{message.from_user.username}" if message.from_user.username else "Немає username"
+
+    # 1. Отправляем подтверждение клиенту
+    await message.answer(
+        "✅ **Дякуємо! Заявку прийнято.**\n\n"
+        f"🛠 **Послуга:** {service}\n"
+        f"📱 **Ваш номер:** {phone_number}\n\n"
+        "Наш менеджер зв'яжеться з вами найближчим часом для уточнення дати та часу!",
+        reply_markup=get_main_keyboard(),
+        parse_mode="Markdown"
+    )
+
+    # 2. Уведомление администратору/заказчику
+    admin_text = (
+        "🚨 **НОВА ЗАЯВКА НА ЗАПИС!**\n\n"
+        f"🛠 **Послуга:** {service}\n"
+        f"👤 **Клієнт:** {first_name} ({username})\n"
+        f"📞 **Телефон:** {phone_number}"
+    )
+    try:
+        await bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="Markdown")
+    except Exception as e:
+        logging.error(f"Не вдалося надіслати повідомлення адміну: {e}")
+
+    await state.clear()
+
+# Отмена записи
+@dp.message(F.text == "❌ Скасувати")
+async def cancel_booking(message: types.Message, state: FSMContext):
+    await state.clear()
+    await message.answer("Запис скасовано.", reply_markup=get_main_keyboard())
+
+# -------------------------------------------------------------
+# ЗАПУСК
+# -------------------------------------------------------------
+async def main():
+    bot = Bot(token=BOT_TOKEN)
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(main())
