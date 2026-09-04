@@ -61,7 +61,6 @@ def get_contact_request_keyboard():
         one_time_keyboard=True
     )
 
-# Заглушка услуг (завтра подгрузим полный прайс и фото)
 def get_services_inline_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -103,7 +102,6 @@ async def cmd_start(message: types.Message, state: FSMContext):
         parse_mode="Markdown"
     )
 
-# --- ГЕОЛОКАЦИЯ ---
 @dp.message(F.text == "📌 Де ми знаходимось")
 async def show_location(message: types.Message):
     await message.answer(
@@ -115,7 +113,6 @@ async def show_location(message: types.Message):
         parse_mode="Markdown"
     )
 
-# --- КОНТАКТЫ ---
 @dp.message(F.text == "📞 Контакти")
 async def show_contacts(message: types.Message):
     await message.answer(
@@ -125,7 +122,6 @@ async def show_contacts(message: types.Message):
         parse_mode="Markdown"
     )
 
-# --- ЗАПИСЬ: Шаг 1 (Выбор услуги) ---
 @dp.message(F.text == "📅 Записатися на сервіс")
 async def start_booking(message: types.Message, state: FSMContext):
     await state.set_state(BookingState.waiting_for_service)
@@ -152,7 +148,6 @@ async def process_service(callback: types.CallbackQuery, state: FSMContext):
         parse_mode="Markdown"
     )
 
-# --- ЗАПИСЬ: Шаг 2 (Выбор дня) ---
 @dp.callback_query(BookingState.waiting_for_date, F.data.startswith("day_"))
 async def process_day(callback: types.CallbackQuery, state: FSMContext):
     selected_day = callback.data.split("_")[1]
@@ -166,7 +161,6 @@ async def process_day(callback: types.CallbackQuery, state: FSMContext):
         parse_mode="Markdown"
     )
 
-# --- ЗАПИСЬ: Шаг 3 (Выбор времени) ---
 @dp.callback_query(BookingState.waiting_for_time, F.data.startswith("time_"))
 async def process_time(callback: types.CallbackQuery, state: FSMContext):
     selected_time = callback.data.split("_")[1]
@@ -186,7 +180,6 @@ async def process_time(callback: types.CallbackQuery, state: FSMContext):
         parse_mode="Markdown"
     )
 
-# --- ЗАПИСЬ: Шаг 4 (Получение контакта и отправка админу) ---
 @dp.message(BookingState.waiting_for_contact, F.contact)
 async def process_contact(message: types.Message, state: FSMContext, bot: Bot):
     user_data = await state.get_data()
@@ -195,7 +188,6 @@ async def process_contact(message: types.Message, state: FSMContext, bot: Bot):
     first_name = message.contact.first_name or message.from_user.first_name
     username = f"@{message.from_user.username}" if message.from_user.username else "Немає username"
 
-    # Ответ клиенту
     await message.answer(
         "✅ **Дякуємо! Заявку прийнято.**\n\n"
         f"🛠 **Послуга:** {user_data.get('selected_service')}\n"
@@ -206,7 +198,6 @@ async def process_contact(message: types.Message, state: FSMContext, bot: Bot):
         parse_mode="Markdown"
     )
 
-    # Отправка уведомления тебе в ЛС (ADMIN_ID)
     admin_text = (
         "🚨 **НОВА ЗАЯВКА НА ЗАПИС!**\n\n"
         f"🛠 **Послуга:** {user_data.get('selected_service')}\n"
@@ -223,7 +214,6 @@ async def process_contact(message: types.Message, state: FSMContext, bot: Bot):
 
     await state.clear()
 
-# Отмена
 @dp.message(F.text == "❌ Скасувати")
 async def cancel_booking(message: types.Message, state: FSMContext):
     await state.clear()
