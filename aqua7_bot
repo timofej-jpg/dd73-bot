@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F, BaseMiddleware
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -157,10 +157,9 @@ async def show_location(message: Message, state: FSMContext):
         "📞 Телефон: +380966195519\n"
         "⏰ Графік роботи: Щодня з 8:00 до 20:00\n\n"
         "📱 Наші посилання та навігація:\n"
-        "• Instagram: https://www.instagram.com/aqua_7_ua\n"
-        "• Telegram Канал: https://t.me/aqua_7_odessa\n"
-        "• Google Maps: https://maps.app.goo.gl/3Q8Y\n"
-        "• Waze Навігатор: https://waze.com/ul/hx8f"
+        "• Instagram: https://www.instagram.com/aqua7.od?stkn=M3ZuZzFkanFkNmJp\n"
+        "• Telegram Канал: https://t.me/carwash_aqua7\n"
+        "• Google Maps: https://maps.app.goo.gl/7xSp5KKHh65mrzw88?g_st=ic"
     )
     await message.answer(text, disable_web_page_preview=True)
 
@@ -169,11 +168,11 @@ async def show_location(message: Message, state: FSMContext):
 async def show_price_categories(message: Message, state: FSMContext):
     await state.clear()
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⭐ Седан / Хетчбек", callback_query_data="price_Sedan/Hatchback")],
-        [InlineKeyboardButton(text="🚗 Універсал", callback_query_data="price_Universal")],
-        [InlineKeyboardButton(text="🛻 Кросовер / Позашляховик", callback_query_data="price_Crossover")],
-        [InlineKeyboardButton(text="Спец / Бус", callback_query_data="price_Bus / SUV")],
-        [InlineKeyboardButton(text="🏍️ Мотоцикли", callback_query_data="price_Moto")]
+        [InlineKeyboardButton(text="⭐ Седан / Хетчбек", callback_data="price_Sedan/Hatchback")],
+        [InlineKeyboardButton(text="🚗 Універсал", callback_data="price_Universal")],
+        [InlineKeyboardButton(text="🛻 Кросовер / Позашляховик", callback_data="price_Crossover")],
+        [InlineKeyboardButton(text="🚌 Спец / Бус", callback_data="price_Bus / SUV")],
+        [InlineKeyboardButton(text="🏍️ Мотоцикли", callback_data="price_Moto")]
     ])
     await message.answer("Оберіть категорію транспорту для перегляду цінового прайсу:", reply_markup=kb)
 
@@ -185,7 +184,7 @@ async def show_price_by_cat(callback: CallbackQuery):
         text += f"• {s_name}: {price} грн\n"
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Назад до категорій", callback_query_data="back_to_prices")]
+        [InlineKeyboardButton(text="🔙 Назад до категорій", callback_data="back_to_prices")]
     ])
     await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
@@ -193,11 +192,11 @@ async def show_price_by_cat(callback: CallbackQuery):
 @dp.callback_query(F.data == "back_to_prices")
 async def back_to_prices(callback: CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⭐ Седан / Хетчбек", callback_query_data="price_Sedan/Hatchback")],
-        [InlineKeyboardButton(text="🚗 Універсал", callback_query_data="price_Universal")],
-        [InlineKeyboardButton(text="🛻 Кросовер / Позашляховик", callback_query_data="price_Crossover")],
-        [InlineKeyboardButton(text="Спец / Бус", callback_query_data="price_Bus / SUV")],
-        [InlineKeyboardButton(text="🏍️ Мотоцикли", callback_query_data="price_Moto")]
+        [InlineKeyboardButton(text="⭐ Седан / Хетчбек", callback_data="price_Sedan/Hatchback")],
+        [InlineKeyboardButton(text="🚗 Універсал", callback_data="price_Universal")],
+        [InlineKeyboardButton(text="🛻 Кросовер / Позашляховик", callback_data="price_Crossover")],
+        [InlineKeyboardButton(text="🚌 Спец / Бус", callback_data="price_Bus / SUV")],
+        [InlineKeyboardButton(text="🏍️ Мотоцикли", callback_data="price_Moto")]
     ])
     await callback.message.edit_text("Оберіть категорію транспорту для перегляду цінового прайсу:", reply_markup=kb)
     await callback.answer()
@@ -207,11 +206,11 @@ async def back_to_prices(callback: CallbackQuery):
 async def start_booking(message: Message, state: FSMContext):
     await state.clear()
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⭐ Седан / Хетчбек", callback_query_data="cat_Sedan/Hatchback")],
-        [InlineKeyboardButton(text="🚗 Універсал", callback_query_data="cat_Universal")],
-        [InlineKeyboardButton(text="🛻 Кросовер / Позашляховик", callback_query_data="cat_Crossover")],
-        [InlineKeyboardButton(text="Спец / Бус", callback_query_data="cat_Bus / SUV")],
-        [InlineKeyboardButton(text="🏍️ Мотоцикли", callback_query_data="cat_Moto")]
+        [InlineKeyboardButton(text="⭐ Седан / Хетчбек", callback_data="cat_Sedan/Hatchback")],
+        [InlineKeyboardButton(text="🚗 Універсал", callback_data="cat_Universal")],
+        [InlineKeyboardButton(text="🛻 Кросовер / Позашляховик", callback_data="cat_Crossover")],
+        [InlineKeyboardButton(text="🚌 Спец / Бус", callback_data="cat_Bus / SUV")],
+        [InlineKeyboardButton(text="🏍️ Мотоцикли", callback_data="cat_Moto")]
     ])
     await message.answer("Крок 1/6: Оберіть категорію вашого авто:", reply_markup=kb)
     await state.set_state(Booking.category)
@@ -231,13 +230,13 @@ async def render_services_menu(message_or_query, cat_name, selected):
         check = "✅ " if s_name in selected else ""
         buttons.append([InlineKeyboardButton(
             text=f"{check}{s_name} ({price} грн)",
-            callback_query_data=f"srv_{s_name}"
+            callback_data=f"srv_{s_name}"
         )])
     
     if selected:
-        buttons.append([InlineKeyboardButton(text="➡️ Продовжити вибір дати", callback_query_data="done_services")])
+        buttons.append([InlineKeyboardButton(text="➡️ Продовжити вибір дати", callback_data="done_services")])
     
-    buttons.append([InlineKeyboardButton(text="❌ Скасувати запис", callback_query_data="cancel_booking")])
+    buttons.append([InlineKeyboardButton(text="❌ Скасувати запис", callback_data="cancel_booking")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     
     text = f"Крок 2/6: Оберіть послуги для {cat_name} (можна декілька):"
@@ -277,8 +276,8 @@ async def done_services(callback: CallbackQuery, state: FSMContext):
     for d in dates:
         dt_obj = datetime.strptime(d, "%Y-%m-%d")
         formatted = dt_obj.strftime("%d.%m (%a)")
-        buttons.append([InlineKeyboardButton(text=formatted, callback_query_data=f"date_{d}")])
-    buttons.append([InlineKeyboardButton(text="❌ Скасувати запис", callback_query_data="cancel_booking")])
+        buttons.append([InlineKeyboardButton(text=formatted, callback_data=f"date_{d}")])
+    buttons.append([InlineKeyboardButton(text="❌ Скасувати запис", callback_data="cancel_booking")])
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text("Крок 3/6: Оберіть дату для запису:", reply_markup=kb)
@@ -295,7 +294,7 @@ async def select_date(callback: CallbackQuery, state: FSMContext):
     for hour in range(8, 20):
         slot_key = f"{chosen_date} {hour:02d}:00"
         if slots.get(slot_key, {}).get("status") == "free":
-            row.append(InlineKeyboardButton(text=f"{hour:02d}:00", callback_query_data=f"time_{hour:02d}:00"))
+            row.append(InlineKeyboardButton(text=f"{hour:02d}:00", callback_data=f"time_{hour:02d}:00"))
         if len(row) == 3:
             buttons.append(row)
             row = []
@@ -306,7 +305,7 @@ async def select_date(callback: CallbackQuery, state: FSMContext):
         await callback.answer("На цей день немає вільних слотів!", show_alert=True)
         return
 
-    buttons.append([InlineKeyboardButton(text="❌ Скасувати запис", callback_query_data="cancel_booking")])
+    buttons.append([InlineKeyboardButton(text="❌ Скасувати запис", callback_data="cancel_booking")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     
     await callback.message.edit_text(f"Крок 4/6: Оберіть час на {chosen_date}:", reply_markup=kb)
@@ -357,7 +356,6 @@ async def enter_phone(message: Message, state: FSMContext):
 
     slot_key = f"{chosen_date} {chosen_time}"
     
-    # Бронируем слот
     slots[slot_key] = {
         "status": "booked",
         "client_name": client_name,
@@ -369,7 +367,6 @@ async def enter_phone(message: Message, state: FSMContext):
     total_sum = sum(PRICES[cat][s] for s in selected)
     srv_list_str = "\n".join([f"• {s}" for s in selected])
 
-    # Подтверждение клиенту
     client_text = (
         f"✅ Ваш запис успішно підтверджено!\n\n"
         f"📍 Автомийка AQUA 7 (вул. Михайлівська 44В)\n"
@@ -381,7 +378,6 @@ async def enter_phone(message: Message, state: FSMContext):
     )
     await message.answer(client_text, reply_markup=main_keyboard(message.from_user.id))
 
-    # УВЕДОМЛЕНИЕ АДМИНИСТРАТОРУ
     admin_text = (
         f"🔔 НОВА ЗАПИС! (AQUA 7)\n\n"
         f"📅 Дата/Час: {chosen_date} {chosen_time}\n"
@@ -412,8 +408,8 @@ async def admin_panel(message: Message):
         return
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Переглянути всі записи", callback_query_data="admin_view_bookings")],
-        [InlineKeyboardButton(text="📢 Розсилка користувачам", callback_query_data="admin_broadcast")]
+        [InlineKeyboardButton(text="📋 Переглянути всі записи", callback_data="admin_view_bookings")],
+        [InlineKeyboardButton(text="📢 Розсилка користувачам", callback_data="admin_broadcast")]
     ])
     await message.answer("⚙️ Панель адміністратора AQUA 7:", reply_markup=kb)
 
@@ -425,7 +421,7 @@ async def admin_view_bookings(callback: CallbackQuery):
     booked = {k: v for k, v in slots.items() if v["status"] == "booked"}
     if not booked:
         await callback.message.edit_text("Наразі немає активних записів.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔙 Назад", callback_query_data="back_to_admin")]
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_admin")]
         ]))
         await callback.answer()
         return
@@ -436,7 +432,7 @@ async def admin_view_bookings(callback: CallbackQuery):
         text += f"⏰ {slot_time}\n👤 {data['client_name']} ({data['client_phone']})\n🚗 {data['car_model']}\n🛠 {srvs}\n---\n"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Назад", callback_query_data="back_to_admin")]
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_admin")]
     ])
     await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
@@ -446,8 +442,8 @@ async def back_to_admin_cb(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
         return
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Переглянути всі записи", callback_query_data="admin_view_bookings")],
-        [InlineKeyboardButton(text="📢 Розсилка користувачам", callback_query_data="admin_broadcast")]
+        [InlineKeyboardButton(text="📋 Переглянути всі записи", callback_data="admin_view_bookings")],
+        [InlineKeyboardButton(text="📢 Розсилка користувачам", callback_data="admin_broadcast")]
     ])
     await callback.message.edit_text("⚙️ Панель адміністратора AQUA 7:", reply_markup=kb)
     await callback.answer()
