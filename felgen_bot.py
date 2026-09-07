@@ -11,28 +11,24 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
     Message,
     CallbackQuery
 )
 
-# --- НАСТРОЙКИ И ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
+# --- НАЛАШТУВАННЯ ТА ЗМІННІ ОТОЧЕННЯ ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "1213392194"))  # Твой Telegram ID
+ADMIN_ID = int(os.getenv("ADMIN_ID", "1213392194"))
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# --- БАЗА ДАННЫХ В ПАМЯТИ ---
-# Список всех пользователей для рассылки
+# --- БАЗА ДАНИХ У ПАМ'ЯТІ ---
 all_users = set()
-
-# Доступные слоты времени
 available_slots = ["10:00", "12:00", "14:00", "16:00", "18:00"]
-
-# Активные записи: {user_id: {"service": ..., "radius": ..., "time": ..., "phone": ..., "name": ...}}
 bookings = {}
 
-# --- FSM СОСТОЯНИЯ ---
+# --- FSM СТАНИ ---
 class BookingState(StatesGroup):
     waiting_for_service = State()
     waiting_for_radius = State()
@@ -46,12 +42,12 @@ class AdminState(StatesGroup):
 # --- МЕНЮ КНОПОК ---
 def main_keyboard(user_id):
     kb = [
-        [KeyboardButton(text="📅 Записаться на сервис")],
-        [KeyboardButton(text="📋 Моя запись"), KeyboardButton(text="📍 Де ми знаходимось")],
-        [KeyboardButton(text="💰 Услуги и цены")]
+        [KeyboardButton(text="📅 Записатися на сервіс")],
+        [KeyboardButton(text="📋 Моє бронювання"), KeyboardButton(text="📍 Де ми знаходимось")],
+        [KeyboardButton(text="💰 Послуги та ціни")]
     ]
     if user_id == ADMIN_ID:
-        kb.append([KeyboardButton(text="⚙️ Панель админа")])
+        kb.append([KeyboardButton(text="⚙️ Панель адміна")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 # --- СТАРТ ---
@@ -60,97 +56,111 @@ async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     all_users.add(message.from_user.id)
     await message.answer(
-        f"Привет, {message.from_user.first_name}! 👋\n"
-        f"Добро пожаловать в **Felgen Welt** (г. Одесса, ул. Дмитриевская 109).\n"
-        f"Выберите нужное действие в меню ниже:",
+        f"Вітаємо, {message.from_user.first_name}! 👋\n\n"
+        f"Ласкаво просимо до **Felgen Welt** — професійного сервісу з обслуговування та реставрації дисків у м. Одеса.\n\n"
+        f"Оберіть потрібний розділ у меню нижче:",
         reply_markup=main_keyboard(message.from_user.id),
         parse_mode="Markdown"
     )
 
-# --- ЛОКАЦИЯ ---
+# --- ДЕ МИ ЗНАХОДИМОСЬ ---
 @dp.message(F.text == "📍 Де ми знаходимось")
-async def show_location(message: Message):
+async def show_location(message: Message, state: FSMContext):
+    await state.clear()
     text = (
-        "📍 **Felgen Welt** — шиномонтажный центр и реставрация дисков\n\n"
-        "🏠 **Адрес:** г. Одесса, ул. Дмитриевская 109\n"
-        "📞 **Телефон:** +380 XX XXX XX XX\n"
-        "⏰ **Режим работы:** Пн-Сб с 9:00 до 19:00\n\n"
-        "📍 [Открыть на Google Картах](https://maps.google.com)"
+        "📍 **Felgen Welt** — шиномонтаж та реставрація дисків\n\n"
+        "🏠 **Адреса:** м. Одеса, вул. Дмитрівська 109\n"
+        "⏰ **Графік роботи:** Пн-Сб з 9:00 до 19:00\n\n"
+        "📱 **Наші соціальні мережі та навігація:**\n"
+        "• [📸 Instagram](https://instagram.com)\n"
+        "• [🗺 Google Maps](https://maps.google.com)\n"
+        "• [🚗 Waze Навігатор](https://waze.com)"
     )
     await message.answer(text, parse_mode="Markdown", disable_web_page_preview=True)
 
-# --- УСЛУГИ И ЦЕНЫ ---
-@dp.message(F.text == "💰 Услуги и цены")
-async def show_prices(message: Message):
+# --- ПОСЛУГИ ТА ЦІНИ ---
+@dp.message(F.text == "💰 Послуги та ціни")
+async def show_prices(message: Message, state: FSMContext):
+    await state.clear()
     text = (
-        "🔧 **Наши основные услуги Felgen Welt:**\n\n"
-        "• Сезонная переобувка шин\n"
-        "• Порошковая покраска дисков\n"
-        "• Ремонт и рихтовка дисков / сварка Argon\n"
-        "• Продажа шин и дисков из Германии\n\n"
-        "Выберите «📅 Записаться на сервис», чтобы рассчитать точную стоимость под ваш радиус!"
+        "🔧 **Орієнтовні ціни на послуги Felgen Welt:**\n\n"
+        "🛞 **Переобувка комплекту:**\n"
+        "• R13 - R15 — від 600 грн\n"
+        "• R16 - R17 — від 800 грн\n"
+        "• R18 - R19 — від 1000 грн\n"
+        "• R20+ — від 1300 грн\n\n"
+        "🎨 **Порошкове фарбування (комплект):**\n"
+        "• R13 - R16 — від 3500 грн\n"
+        "• R17 - R19 — від 4500 грн\n"
+        "• R20+ — від 6000 грн\n\n"
+        "🔨 **Рихтовка / Зварювання аргоном:** від 400 грн/диск\n"
+        "🇩🇪 **Прямі поставки шин/дисків з Німеччини:** індивідуальний розрахунок\n\n"
+        "Для точності оберіть «📅 Записатися на сервіс»!"
     )
-    await message.answer(text)
+    await message.answer(text, parse_mode="Markdown")
 
-# --- МОЯ ЗАПИСЬ ---
-@dp.message(F.text == "📋 Моя запись")
-async def show_my_booking(message: Message):
+# --- МОЄ БРОНЮВАННЯ ---
+@dp.message(F.text == "📋 Моє бронювання")
+async def show_my_booking(message: Message, state: FSMContext):
+    await state.clear()
     user_id = message.from_user.id
     if user_id in bookings:
         b = bookings[user_id]
         text = (
-            f"📋 **Ваша активная запись:**\n\n"
-            f"🛠 **Услуга:** {b['service']}\n"
-            f"🛞 **Радиус:** {b['radius']}\n"
-            f"⏰ **Время:** {b['time']}\n"
+            f"📋 **Ваше активне бронювання:**\n\n"
+            f"🛠 **Послуга:** {b['service']}\n"
+            f"🛞 **Радіус:** {b['radius']}\n"
+            f"⏰ **Час:** {b['time']}\n"
             f"📞 **Телефон:** {b['phone']}\n\n"
-            f"📍 Ждем вас по адресу: ул. Дмитриевская 109"
+            f"📍 Чекаємо на вас: вул. Дмитрівська 109"
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Перенести запись", callback_query_data="reschedule")],
-            [InlineKeyboardButton(text="❌ Отменить запись", callback_query_data="cancel_booking")]
+            [InlineKeyboardButton(text="🔄 Перенести запис", callback_data="reschedule")],
+            [InlineKeyboardButton(text="❌ Скасувати запис", callback_data="cancel_booking")]
         ])
         await message.answer(text, reply_markup=kb, parse_mode="Markdown")
     else:
-        await message.answer("У вас пока нет активных записей. Нажмите «📅 Записаться на сервис».")
+        await message.answer("У вас немає активних записів. Натисніть «📅 Записатися на сервіс».")
 
-# --- ПРОЦЕСС ЗАПИСИ (ФЛОУ) ---
-@dp.message(F.text == "📅 Записаться на сервис")
+# --- ПРОЦЕС ЗАПИСУ ---
+@dp.message(F.text == "📅 Записатися на сервіс")
 async def start_booking(message: Message, state: FSMContext):
+    await state.clear()
     user_id = message.from_user.id
     all_users.add(user_id)
+
+    # Захист від спаму записів
     if user_id in bookings:
-        await message.answer("У вас уже есть активная запись! Посмотреть или изменить её можно в разделе «📋 Моя запись».")
+        await message.answer("У вас вже є активний запис! Ви можете переглянути або змінити його у розділі «📋 Моє бронювання».")
         return
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Переобувка шин", callback_data="srv_tire")],
-        [InlineKeyboardButton(text="🎨 Порошковая покраска дисков", callback_data="srv_paint")],
-        [InlineKeyboardButton(text="🔨 Ремонт / Рихтовка дисков", callback_data="srv_repair")],
-        [InlineKeyboardButton(text="🇩🇪 Подбор шин/дисков из Германии", callback_data="srv_import")]
+        [InlineKeyboardButton(text="🔄 Сезонна переобувка", callback_data="srv_tire")],
+        [InlineKeyboardButton(text="🎨 Порошкове фарбування", callback_data="srv_paint")],
+        [InlineKeyboardButton(text="🔨 Ремонт / Рихтовка дисків", callback_data="srv_repair")],
+        [InlineKeyboardButton(text="🇩🇪 Підбір шин/дисків з Німеччини", callback_data="srv_import")]
     ])
     await state.set_state(BookingState.waiting_for_service)
-    await message.answer("Выберите нужную услугу:", reply_markup=kb)
+    await message.answer("Оберіть необхідну послугу:", reply_markup=kb)
 
 @dp.callback_query(BookingState.waiting_for_service)
 async def process_service(callback: CallbackQuery, state: FSMContext):
     srv_map = {
-        "srv_tire": "Переобувка шин",
-        "srv_paint": "Порошковая покраска",
-        "srv_repair": "Ремонт/Рихтовка дисков",
-        "srv_import": "Подбор шин/дисков из Германии"
+        "srv_tire": "Сезонна переобувка",
+        "srv_paint": "Порошкове фарбування",
+        "srv_repair": "Ремонт/Рихтовка дисків",
+        "srv_import": "Підбір з Німеччини"
     }
-    srv_name = srv_map.get(callback.data, "Услуга")
+    srv_name = srv_map.get(callback.data, "Послуга")
     await state.update_data(selected_service=srv_name)
     await callback.answer()
 
-    # Шаг 2: Выбор радиуса
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="R13-R15", callback_data="R13-R15"), InlineKeyboardButton(text="R16-R17", callback_data="R16-R17")],
         [InlineKeyboardButton(text="R18-R19", callback_data="R18-R19"), InlineKeyboardButton(text="R20+", callback_data="R20+")]
     ])
     await state.set_state(BookingState.waiting_for_radius)
-    await callback.message.answer(f"Выбрано: **{srv_name}**.\nУкажите радиус ваших колес:", reply_markup=kb, parse_mode="Markdown")
+    await callback.message.answer(f"Обрано: **{srv_name}**.\nВкажіть радіус ваших коліс:", reply_markup=kb, parse_mode="Markdown")
 
 @dp.callback_query(BookingState.waiting_for_radius)
 async def process_radius(callback: CallbackQuery, state: FSMContext):
@@ -158,16 +168,15 @@ async def process_radius(callback: CallbackQuery, state: FSMContext):
     await state.update_data(selected_radius=radius)
     await callback.answer()
 
-    # Выбор времени из свободных слотов
     if not available_slots:
-        await callback.message.answer("К сожалению, на сегодня свободных слотов нет. Попробуйте позже.")
+        await callback.message.answer("На жаль, вільних слотів немає. Спробуйте пізніше або зверніться до адміністратора.")
         await state.clear()
         return
 
     buttons = [[InlineKeyboardButton(text=f"⏰ {slot}", callback_data=f"time_{slot}")] for slot in available_slots]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await state.set_state(BookingState.waiting_for_time)
-    await callback.message.answer("Выберите удобное время для визита:", reply_markup=kb)
+    await callback.message.answer("Оберіть зручний час для візиту:", reply_markup=kb)
 
 @dp.callback_query(BookingState.waiting_for_time)
 async def process_time(callback: CallbackQuery, state: FSMContext):
@@ -175,86 +184,88 @@ async def process_time(callback: CallbackQuery, state: FSMContext):
     await state.update_data(selected_time=time_selected)
     await callback.answer()
 
+    contact_kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="📱 Поділитися контактом", request_contact=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
     await state.set_state(BookingState.waiting_for_phone)
-    await callback.message.answer("Остался последний шаг! Напишите ваш **номер телефона** для связи:")
+    await callback.message.answer("Натисніть кнопку нижче, щоб передати ваш номер телефону для підтвердження:", reply_markup=contact_kb)
 
 @dp.message(BookingState.waiting_for_phone)
 async def process_phone(message: Message, state: FSMContext):
+    phone = message.contact.phone_number if message.contact else message.text
     data = await state.get_data()
     user_id = message.from_user.id
     user_name = message.from_user.full_name
     time_selected = data['selected_time']
 
-    # Сохраняем бронь
     bookings[user_id] = {
         "service": data['selected_service'],
         "radius": data['selected_radius'],
         "time": time_selected,
-        "phone": message.text,
+        "phone": phone,
         "name": user_name
     }
 
-    # Удаляем забронированный слот из доступных
     if time_selected in available_slots:
         available_slots.remove(time_selected)
 
     await state.clear()
 
-    # Клиентское подтверждение
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Перенести запись", callback_data="reschedule")],
-        [InlineKeyboardButton(text="❌ Отменить запись", callback_data="cancel_booking")]
+        [InlineKeyboardButton(text="🔄 Перенести запис", callback_data="reschedule")],
+        [InlineKeyboardButton(text="❌ Скасувати запис", callback_data="cancel_booking")]
     ])
+    
+    await message.answer("Дякуємо! Номер отримано.", reply_markup=main_keyboard(user_id))
     await message.answer(
-        f"✅ **Запись успешно оформлена!**\n\n"
-        f"🛠 **Услуга:** {data['selected_service']}\n"
-        f"🛞 **Радиус:** {data['selected_radius']}\n"
-        f"⏰ **Время:** {time_selected}\n"
-        f"📍 **Адрес:** г. Одесса, ул. Дмитриевская 109\n\n"
-        f"Ждем вас! Если планы изменятся, вы можете перенести или отменить запись кнопками ниже.",
+        f"✅ **Запис успішно оформлено!**\n\n"
+        f"🛠 **Послуга:** {data['selected_service']}\n"
+        f"🛞 **Радіус:** {data['selected_radius']}\n"
+        f"⏰ **Час:** {time_selected}\n"
+        f"📍 **Адреса:** м. Одеса, вул. Дмитрівська 109\n\n"
+        f"Чекаємо на вас! Якщо плани зміняться, скористайтесь кнопками нижче.",
         reply_markup=kb,
         parse_mode="Markdown"
     )
 
-    # Уведомление Админу
     try:
         await bot.send_message(
             ADMIN_ID,
-            f"🚨 **НОВАЯ ЗАПИСЬ (Felgen Welt)!**\n\n"
-            f"👤 **Клиент:** {user_name} (@{message.from_user.username or 'нет'})\n"
-            f"📞 **Тел:** {message.text}\n"
-            f"🛠 **Услуга:** {data['selected_service']}\n"
-            f"🛞 **Радиус:** {data['selected_radius']}\n"
-            f"⏰ **Время:** {time_selected}",
+            f"🚨 **НОВИЙ ЗАПИС (Felgen Welt)!**\n\n"
+            f"👤 **Клієнт:** {user_name} (@{message.from_user.username or 'немає'})\n"
+            f"📞 **Тел:** {phone}\n"
+            f"🛠 **Послуга:** {data['selected_service']}\n"
+            f"🛞 **Радіус:** {data['selected_radius']}\n"
+            f"⏰ **Час:** {time_selected}",
             parse_mode="Markdown"
         )
     except Exception as e:
-        logging.error(f"Ошибка отправки админу: {e}")
+        logging.error(f"Помилка сповіщення адміна: {e}")
 
-# --- ОТМЕНА И ПЕРЕНОС ЗАПИСИ КЛИЕНТОМ ---
+# --- СКАСУВАННЯ ТА ПЕРЕНОС ---
 @dp.callback_query(F.data == "cancel_booking")
 async def cancel_booking_handler(callback: CallbackQuery):
     user_id = callback.from_user.id
     if user_id in bookings:
         b = bookings.pop(user_id)
-        # Возвращаем слот обратно в доступные
         if b['time'] not in available_slots:
             available_slots.append(b['time'])
             available_slots.sort()
 
-        await callback.message.edit_text("❌ **Ваша запись успешно отменена.** Забронированное время снова свободно.")
-        await callback.answer("Запись отменена")
+        await callback.message.edit_text("❌ **Ваш запис успішно скасовано.** Час знову вільний для бронювання.")
+        await callback.answer("Запис скасовано")
 
-        # Уведомляем админа
         try:
             await bot.send_message(
                 ADMIN_ID,
-                f"ℹ️ **ОТМЕНА ЗАПИСИ!**\nКлиент {b['name']} отменил запись на {b['time']} ({b['service']}). Слот снова свободен."
+                f"ℹ️ **СКАСУВАННЯ ЗАПИСУ!**\nКлієнт {b['name']} скасував запис на {b['time']} ({b['service']}). Слот знову вільний."
             )
         except Exception:
             pass
     else:
-        await callback.answer("У вас нет активных записей.", show_alert=True)
+        await callback.answer("У вас немає активних записів.", show_alert=True)
 
 @dp.callback_query(F.data == "reschedule")
 async def reschedule_booking_handler(callback: CallbackQuery, state: FSMContext):
@@ -265,52 +276,53 @@ async def reschedule_booking_handler(callback: CallbackQuery, state: FSMContext)
             available_slots.append(b['time'])
             available_slots.sort()
 
-        await callback.answer("Старая запись сброшена. Выберите новое время!")
-        # Запускаем флоу заново
+        await callback.answer("Старий запис скинуто. Оберіть новий час!")
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Переобувка шин", callback_data="srv_tire")],
-            [InlineKeyboardButton(text="🎨 Порошковая покраска дисков", callback_data="srv_paint")],
-            [InlineKeyboardButton(text="🔨 Ремонт / Рихтовка дисков", callback_data="srv_repair")],
-            [InlineKeyboardButton(text="🇩🇪 Подбор шин/дисков из Германии", callback_data="srv_import")]
+            [InlineKeyboardButton(text="🔄 Сезонна переобувка", callback_data="srv_tire")],
+            [InlineKeyboardButton(text="🎨 Порошкове фарбування", callback_data="srv_paint")],
+            [InlineKeyboardButton(text="🔨 Ремонт / Рихтовка дисків", callback_data="srv_repair")],
+            [InlineKeyboardButton(text="🇩🇪 Підбір шин/дисків з Німеччини", callback_data="srv_import")]
         ])
         await state.set_state(BookingState.waiting_for_service)
-        await callback.message.answer("Старая запись сброшена. Выберите услугу заново:", reply_markup=kb)
+        await callback.message.answer("Старий запис скинуто. Оберіть послугу заново:", reply_markup=kb)
 
-# --- ПАНЕЛЬ АДМИНИСТРАТОРА ---
-@dp.message(F.text == "⚙️ Панель админа")
+# --- ПАНЕЛЬ АДМІНІСТРАТОРА ---
+@dp.message(F.text == "⚙️ Панель адміна")
 @dp.message(Command("admin"))
-async def admin_panel(message: Message):
+async def admin_panel(message: Message, state: FSMContext):
+    await state.clear()
     if message.from_user.id != ADMIN_ID:
         return
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Все активные записи", callback_data="admin_list_bookings")],
-        [InlineKeyboardButton(text="📢 Сделать рассылку", callback_data="admin_broadcast")],
-        [InlineKeyboardButton(text="➕ Добавить свободный слот", callback_data="admin_add_slot")]
+        [InlineKeyboardButton(text="📋 Усі активні записи", callback_data="admin_list_bookings")],
+        [InlineKeyboardButton(text="📢 Зробити розсилку", callback_data="admin_broadcast")],
+        [InlineKeyboardButton(text="➕ Додати вільний слот", callback_data="admin_add_slot")]
     ])
-    await message.answer("🛠 **Панель администратора Felgen Welt**", reply_markup=kb, parse_mode="Markdown")
+    await message.answer("🛠 **Панель адміністратора Felgen Welt**", reply_markup=kb, parse_mode="Markdown")
 
 @dp.callback_query(F.data == "admin_list_bookings")
-async def admin_list_bookings_handler(callback: CallbackQuery):
+async def admin_list_bookings_handler(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     if callback.from_user.id != ADMIN_ID:
         return
 
     if not bookings:
-        await callback.message.answer("На данный момент активных записей нет.")
+        await callback.message.answer("На даний момент активних записів немає.")
     else:
-        text = "📋 **Список всех текущих записей:**\n\n"
+        text = "📋 **Список усіх поточних записів:**\n\n"
         for uid, b in bookings.items():
-            text += f"⏰ **{b['time']}** — {b['name']} ({b['phone']})\n   Услуга: {b['service']} [{b['radius']}]\n---\n"
+            text += f"⏰ **{b['time']}** — {b['name']} ({b['phone']})\n   Послуга: {b['service']} [{b['radius']}]\n---\n"
         await callback.message.answer(text, parse_mode="Markdown")
     await callback.answer()
 
-# --- РАССЫЛКА ---
+# --- РОЗСИЛКА ---
 @dp.callback_query(F.data == "admin_broadcast")
 async def admin_broadcast_handler(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID:
         return
     await state.set_state(AdminState.waiting_for_broadcast)
-    await callback.message.answer("Введите текст (или отправьте фото с описанием) для рассылки всем пользователям:")
+    await callback.message.answer("Введіть текст (або надішліть фото з описом) для розсилки усім користувачам:")
     await callback.answer()
 
 @dp.message(AdminState.waiting_for_broadcast)
@@ -319,7 +331,7 @@ async def process_broadcast(message: Message, state: FSMContext):
         return
 
     count = 0
-    await message.answer("🚀 Запуск рассылки...")
+    await message.answer("🚀 Запуск розсилки...")
     for uid in list(all_users):
         try:
             if message.photo:
@@ -331,16 +343,16 @@ async def process_broadcast(message: Message, state: FSMContext):
         except Exception:
             pass
 
-    await message.answer(f"✅ Рассылка успешно завершена! Доставлено **{count}** пользователям.", parse_mode="Markdown")
+    await message.answer(f"✅ Розсилку успішно завершено! Доставлено **{count}** користувачам.", parse_mode="Markdown")
     await state.clear()
 
-# --- ДОБАВЛЕНИЕ СЛОТА ---
+# --- ДОДАВАННЯ СЛОТА ---
 @dp.callback_query(F.data == "admin_add_slot")
 async def admin_add_slot_handler(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID:
         return
     await state.set_state(AdminState.waiting_for_new_slot)
-    await callback.message.answer("Введите новое время в формате `HH:MM` (например, `19:00`):")
+    await callback.message.answer("Введіть новий час у форматі `HH:MM` (наприклад, `19:00`):")
     await callback.answer()
 
 @dp.message(AdminState.waiting_for_new_slot)
@@ -351,9 +363,9 @@ async def process_add_slot(message: Message, state: FSMContext):
     if new_slot not in available_slots:
         available_slots.append(new_slot)
         available_slots.sort()
-        await message.answer(f"✅ Слот `{new_slot}` успешно добавлен!")
+        await message.answer(f"✅ Слот `{new_slot}` успішно додано!")
     else:
-        await message.answer("Такой слот уже существует.")
+        await message.answer("Такий слот вже існує.")
     await state.clear()
 
 # --- ЗАПУСК БОТА ---
