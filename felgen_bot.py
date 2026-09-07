@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+from aiohttp import web
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
@@ -11,7 +12,6 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
     Message,
     CallbackQuery
 )
@@ -19,6 +19,7 @@ from aiogram.types import (
 # --- НАЛАШТУВАННЯ ТА ЗМІННІ ОТОЧЕННЯ ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "1213392194"))
+PORT = int(os.getenv("PORT", 8080))
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -129,7 +130,6 @@ async def start_booking(message: Message, state: FSMContext):
     user_id = message.from_user.id
     all_users.add(user_id)
 
-    # Захист від спаму записів
     if user_id in bookings:
         await message.answer("У вас вже є активний запис! Ви можете переглянути або змінити його у розділі «📋 Моє бронювання».")
         return
@@ -368,9 +368,22 @@ async def process_add_slot(message: Message, state: FSMContext):
         await message.answer("Такий слот вже існує.")
     await state.clear()
 
+# --- ВЕБ-СЕРВЕР ДЛЯ РЕНДЕРА (HEALTH CHECK) ---
+async def handle_ping(request):
+    return web.Response(text="Bot is alive!")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
+    await site.start()
+
 # --- ЗАПУСК БОТА ---
 async def main():
     logging.basicConfig(level=logging.INFO)
+    await start_web_server()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
