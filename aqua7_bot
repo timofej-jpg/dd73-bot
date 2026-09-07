@@ -158,7 +158,7 @@ async def cmd_start(message: Message, state: FSMContext):
 @dp.message(F.text == "📍 Де ми знаходимось")
 async def show_location(message: Message, state: FSMContext):
     await state.clear()
- text = (
+    text = (
     "📍 Автомийка AQUA 7\n\n"
     "🏠 Адреса: м. Одеса, вул. ...\n"
     "📞 Телефон: +380966195519\n"
