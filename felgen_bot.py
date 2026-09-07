@@ -58,14 +58,22 @@ all_users = set()
 # status: "free" | "booked" | "blocked"
 slots = {}
 
+def get_operating_hours(date_str):
+    dt_obj = datetime.strptime(date_str, "%Y-%m-%d")
+    # 6 — Воскресенье
+    if dt_obj.weekday() == 6:
+        return range(9, 18)
+    return range(9, 19)
+
 def init_default_slots():
     now = datetime.now()
     for i in range(7):
         day_date = (now + timedelta(days=i)).strftime("%Y-%m-%d")
-        for hour in range(8, 20):
+        hours = get_operating_hours(day_date)
+        for hour in hours:
             slot_key = f"{day_date} {hour:02d}:00"
             if slot_key not in slots:
-                slots[slot_key] = {"status": "free", "client_name": "", "client_phone": "", "services": []}
+                slots[slot_key] = {"status": "free", "client_name": "", "client_phone": "", "user_id": None, "services": [], "category": ""}
 
 init_default_slots()
 
@@ -76,6 +84,10 @@ class Booking(StatesGroup):
     time = State()
     phone = State()
 
+class Reschedule(StatesGroup):
+    date = State()
+    time = State()
+
 class Admin(StatesGroup):
     broadcast = State()
     manage_slots_date = State()
@@ -84,6 +96,7 @@ class Admin(StatesGroup):
 def main_keyboard(user_id):
     kb = [
         [KeyboardButton(text="📅 Записатися на послугу")],
+        [KeyboardButton(text="🔄 Перенести / Скасувати запис")],
         [KeyboardButton(text="💳 Прайс-лист"), KeyboardButton(text="📍 Де ми знаходимось")]
     ]
     if user_id == ADMIN_ID:
@@ -137,11 +150,13 @@ async def show_location(message: Message, state: FSMContext):
         "📍 Студія дисків Felgen Welt\n\n"
         "🏠 Адреса: м. Одеса\n"
         "📞 Телефон: +380966195519\n"
-        "⏰ Графік роботи: Щодня з 8:00 до 20:00\n\n"
+        "⏰ Графік роботи:\n"
+        "• Пн - Сб: 09:00 - 19:00\n"
+        "• Нд: 09:00 - 18:00\n\n"
         "📱 Наші посилання та навігація:\n"
         "• Instagram: https://www.instagram.com/felgen_welt\n"
         "• Telegram Канал: https://t.me/felgen_welt\n"
-        "• Google Maps: https://maps.app.goo.gl/2u9m2nLsm2iSv8Ra8?g_st=ic"
+        "• Google Maps: https://maps.app.goo.gl/DHGjeAeR5JzxmFr36?g_st=ic"
     )
     await message.answer(text, disable_web_page_preview=True)
 
@@ -270,7 +285,8 @@ async def select_date(callback: CallbackQuery, state: FSMContext):
 
     buttons = []
     row = []
-    for hour in range(9, 18):
+    hours = get_operating_hours(chosen_date)
+    for hour in hours:
         slot_key = f"{chosen_date} {hour:02d}:00"
         if slots.get(slot_key, {}).get("status") == "free":
             row.append(InlineKeyboardButton(text=f"{hour:02d}:00", callback_data=f"time_{hour:02d}:00"))
@@ -323,12 +339,13 @@ async def enter_phone(message: Message, state: FSMContext):
 
     slot_key = f"{chosen_date} {chosen_time}"
     
-    # Бронируем слот
     slots[slot_key] = {
         "status": "booked",
         "client_name": client_name,
         "client_phone": phone,
-        "services": selected
+        "user_id": message.from_user.id,
+        "services": selected,
+        "category": cat
     }
 
     total_sum = sum(PRICES[cat][s] for s in selected)
@@ -366,6 +383,147 @@ async def cancel_booking(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text("Запис скасовано.")
     await callback.message.answer("Оберіть дію в меню:", reply_markup=main_keyboard(callback.from_user.id))
+    await callback.answer()
+
+# --- УПРАВЛЕНИЕ ЗАПИСЬЮ КЛИЕНТОМ (ПЕРЕНОС / ОТМЕНА) ---
+@dp.message(F.text == "🔄 Перенести / Скасувати запис")
+async def manage_my_booking(message: Message, state: FSMContext):
+    await state.clear()
+    user_id = message.from_user.id
+    user_bookings = {k: v for k, v in slots.items() if v.get("user_id") == user_id and v.get("status") == "booked"}
+
+    if not user_bookings:
+        await message.answer("У вас немає активних записів.")
+        return
+
+    for slot_key, data in user_bookings.items():
+        srvs = "\n".join([f"• {s}" for s in data["services"]])
+        text = (
+            f"📋 Ваш активний запис:\n\n"
+            f"📅 Дата/Час: {slot_key}\n"
+            f"⚙️ Категорія: {data['category']}\n"
+            f"🛠 Послуги:\n{srvs}"
+        )
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Перенести запис", callback_data=f"resched_{slot_key}")],
+            [InlineKeyboardButton(text="❌ Скасувати запис", callback_data=f"canceluser_{slot_key}")]
+        ])
+        await message.answer(text, reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("canceluser_"))
+async def user_cancel_booking(callback: CallbackQuery):
+    slot_key = callback.data.replace("canceluser_", "")
+    if slot_key in slots and slots[slot_key].get("user_id") == callback.from_user.id:
+        client_name = slots[slot_key]["client_name"]
+        client_phone = slots[slot_key]["client_phone"]
+        
+        slots[slot_key] = {"status": "free", "client_name": "", "client_phone": "", "user_id": None, "services": [], "category": ""}
+        
+        await callback.message.edit_text(f"❌ Ваш запис на {slot_key} успішно скасовано.")
+        
+        try:
+            await bot.send_message(
+                ADMIN_ID,
+                f"❌ КЛІЄНТ СКАСУВАВ ЗАПИС!\n\n"
+                f"📅 Дата/Час: {slot_key}\n"
+                f"👤 Клієнт: {client_name}\n"
+                f"📞 Телефон: {client_phone}"
+            )
+        except Exception as e:
+            logging.error(f"Не вдалося сповістити адміна: {e}")
+    else:
+        await callback.answer("Запис не знайдено або вже скасовано.", show_alert=True)
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("resched_"))
+async def user_start_reschedule(callback: CallbackQuery, state: FSMContext):
+    slot_key = callback.data.replace("resched_", "")
+    if slot_key not in slots or slots[slot_key].get("user_id") != callback.from_user.id:
+        await callback.answer("Запис не знайдено.", show_alert=True)
+        return
+
+    await state.update_data(old_slot_key=slot_key)
+    
+    init_default_slots()
+    now = datetime.now()
+    dates = [(now + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    
+    buttons = []
+    for d in dates:
+        dt_obj = datetime.strptime(d, "%Y-%m-%d")
+        formatted = dt_obj.strftime("%d.%m (%a)")
+        buttons.append([InlineKeyboardButton(text=formatted, callback_data=f"resdate_{d}")])
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await callback.message.edit_text("Оберіть нову дату для переносу запису:", reply_markup=kb)
+    await state.set_state(Reschedule.date)
+    await callback.answer()
+
+@dp.callback_query(Reschedule.date, F.data.startswith("resdate_"))
+async def reschedule_select_date(callback: CallbackQuery, state: FSMContext):
+    chosen_date = callback.data.replace("resdate_", "")
+    await state.update_data(new_date=chosen_date)
+
+    buttons = []
+    row = []
+    hours = get_operating_hours(chosen_date)
+    for hour in hours:
+        slot_key = f"{chosen_date} {hour:02d}:00"
+        if slots.get(slot_key, {}).get("status") == "free":
+            row.append(InlineKeyboardButton(text=f"{hour:02d}:00", callback_data=f"restime_{hour:02d}:00"))
+        if len(row) == 3:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    if not buttons:
+        await callback.answer("На цей день немає вільних слотів!", show_alert=True)
+        return
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await callback.message.edit_text(f"Оберіть новий час на {chosen_date}:", reply_markup=kb)
+    await state.set_state(Reschedule.time)
+    await callback.answer()
+
+@dp.callback_query(Reschedule.time, F.data.startswith("restime_"))
+async def reschedule_finish(callback: CallbackQuery, state: FSMContext):
+    chosen_time = callback.data.replace("restime_", "")
+    data = await state.get_data()
+    old_slot_key = data.get("old_slot_key")
+    new_date = data.get("new_date")
+    new_slot_key = f"{new_date} {chosen_time}"
+
+    if old_slot_key in slots and slots[old_slot_key].get("status") == "booked":
+        old_data = slots[old_slot_key]
+        
+        # Переносим данные в новый слот
+        slots[new_slot_key] = {
+            "status": "booked",
+            "client_name": old_data["client_name"],
+            "client_phone": old_data["client_phone"],
+            "user_id": old_data["user_id"],
+            "services": old_data["services"],
+            "category": old_data["category"]
+        }
+        
+        # Освобождаем старый слот
+        slots[old_slot_key] = {"status": "free", "client_name": "", "client_phone": "", "user_id": None, "services": [], "category": ""}
+
+        await callback.message.edit_text(f"🔄 Ваш запис успішно перенесено на {new_slot_key}!")
+
+        try:
+            await bot.send_message(
+                ADMIN_ID,
+                f"🔄 КЛІЄНТ ПЕРЕНЕС ЗАПИС!\n\n"
+                f"👤 Клієнт: {old_data['client_name']} ({old_data['client_phone']})\n"
+                f"❌ Старий час: {old_slot_key}\n"
+                f"✅ Новий час: {new_slot_key}"
+            )
+        except Exception as e:
+            logging.error(f"Не вдалося сповістити адміна: {e}")
+
+    await state.clear()
     await callback.answer()
 
 # --- ПАНЕЛЬ АДМІНА ---
@@ -438,7 +596,8 @@ async def admin_select_date_slots(callback: CallbackQuery):
 async def render_admin_slots_menu(message, chosen_date):
     buttons = []
     row = []
-    for hour in range(8, 20):
+    hours = get_operating_hours(chosen_date)
+    for hour in hours:
         slot_key = f"{chosen_date} {hour:02d}:00"
         st = slots.get(slot_key, {}).get("status", "free")
         
@@ -483,9 +642,9 @@ async def toggle_slot_status(callback: CallbackQuery):
     current_status = slot_info.get("status", "free")
 
     if current_status == "free":
-        slots[slot_key] = {"status": "blocked", "client_name": "", "client_phone": "", "services": []}
+        slots[slot_key] = {"status": "blocked", "client_name": "", "client_phone": "", "user_id": None, "services": [], "category": ""}
     elif current_status == "blocked":
-        slots[slot_key] = {"status": "free", "client_name": "", "client_phone": "", "services": []}
+        slots[slot_key] = {"status": "free", "client_name": "", "client_phone": "", "user_id": None, "services": [], "category": ""}
     elif current_status == "booked":
         c_name = slot_info.get("client_name", "Невідомо")
         c_phone = slot_info.get("client_phone", "Невідомо")
