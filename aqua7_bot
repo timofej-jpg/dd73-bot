@@ -1,0 +1,570 @@
+import os
+import asyncio
+import logging
+from datetime import datetime, timedelta
+from aiohttp import web
+from aiogram import Bot, Dispatcher, F, BaseMiddleware
+from aiogram.filters import CommandStart, Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    Message,
+    CallbackQuery
+)
+
+# --- НАЛАШТУВАННЯ ТА ЗМІННІ ОТОЧЕННЯ ---
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "1213392194"))
+PORT = int(os.getenv("PORT", 8080))
+
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(storage=MemoryStorage())
+
+# --- АНТИСПАМ МІДЛВАРЬ ---
+class AntiSpamMiddleware(BaseMiddleware):
+    def __init__(self, limit=0.7):
+        self.limit = limit
+        self.user_timestamps = {}
+
+    async def __call__(self, handler, event, data):
+        user_id = event.from_user.id
+        now = datetime.now().timestamp()
+        if user_id in self.user_timestamps:
+            if now - self.user_timestamps[user_id] < self.limit:
+                if isinstance(event, CallbackQuery):
+                    await event.answer("⚠️ Не натискайте так часто!", show_alert=False)
+                return
+        self.user_timestamps[user_id] = now
+        return await handler(event, data)
+
+dp.message.middleware(AntiSpamMiddleware())
+dp.callback_query.middleware(AntiSpamMiddleware())
+
+# --- БАЗА ДАНИХ У ПАМ'ЯТІ ---
+all_users = set()
+base_slots = ["08:00", "10:00", "12:00", "14:00", "16:00", "18:00"]
+blocked_slots = {}  # {"2026-09-08": ["10:00"]}
+bookings = {}       # {user_id: {...}}
+
+# --- ПРАЙС-ЛИСТ (ОЦИФРОВАНО ЗІ СКРИНШОТІВ AQUA_7) ---
+CAR_TYPES = {
+    "sedan": "🚗 Седан / Хетчбек",
+    "universal": "🚙 Универсал / Паркетник",
+    "crossover": "🚘 Кросовер / Позашляховик",
+    "bus": "🚐 Бус / Великий SUV",
+    "moto": "🏍 Мотоцикл"
+}
+
+PRICES = {
+    "Комплекси": {
+        "Стандарт (Верх, Салон, Багажник, Поліроль, Рідкий віск, Чорніння)": {
+            "sedan": "900 грн", "universal": "900 грн", "crossover": "950 грн", "bus": "від 800 грн"
+        },
+        "Преміум (+ Твердий віск, Кондиціонер шкіри)": {
+            "sedan": "1600 грн", "universal": "1600 грн", "crossover": "1700 грн", "bus": "1750 грн"
+        },
+        "Преміум+ (+ Кераміка, Чистка скла, Антидощ)": {
+            "sedan": "2200 грн", "universal": "2500 грн", "crossover": "2800 грн", "bus": "3000 грн"
+        }
+    },
+    "Кузов": {
+        "Верх": {"sedan": "350 грн", "universal": "400 грн", "crossover": "450 грн", "bus": "500 грн"},
+        "Експрес": {"sedan": "250 грн", "universal": "300 грн", "crossover": "350 грн", "bus": "400 грн"},
+        "Нано-шампунь": {"sedan": "200 грн", "universal": "200 грн", "crossover": "200 грн", "bus": "200 грн"},
+        "Чорніння шин": {"sedan": "100 грн", "universal": "100 грн", "crossover": "150 грн", "bus": "150 грн"},
+        "Антимошка": {"sedan": "від 50 грн", "universal": "від 50 грн", "crossover": "від 50 грн", "bus": "від 50 грн"},
+        "Збиття підкрилок": {"sedan": "від 50 грн", "universal": "від 50 грн", "crossover": "від 50 грн", "bus": "від 50 грн"}
+    },
+    "Салон": {
+        "Прибирання салону": {"sedan": "від 250 грн", "universal": "від 250 грн", "crossover": "від 300 грн", "bus": "від 300 грн"},
+        "Посилене прибирання": {"sedan": "від 100 грн", "universal": "від 100 грн", "crossover": "від 100 грн", "bus": "від 100 грн"},
+        "Поліроль пластику (Глянець/Мат)": {"sedan": "100-150 грн", "universal": "100-150 грн", "crossover": "100-150 грн", "bus": "100-150 грн"},
+        "Кондиціонер шкіри": {"sedan": "300-400 грн", "universal": "300-400 грн", "crossover": "300-400 грн", "bus": "300-400 грн"},
+        "Прибирання багажника": {"sedan": "від 100 грн", "universal": "від 100 грн", "crossover": "від 100 грн", "bus": "від 100 грн"}
+    },
+    "Додаткові послуги": {
+        "Мийка двигуна": {"sedan": "300 грн", "universal": "300 грн", "crossover": "300 грн", "bus": "300 грн"},
+        "Антидощ": {"sedan": "800-2000 грн", "universal": "800-2000 грн", "crossover": "800-2000 грн", "bus": "800-2000 грн"},
+        "Чистка скла + Антидощ": {"sedan": "800 грн", "universal": "800 грн", "crossover": "800 грн", "bus": "800 грн"},
+        "Видалення бітуму": {"sedan": "від 100 грн", "universal": "від 100 грн", "crossover": "від 100 грн", "bus": "від 100 грн"},
+        "Твердий віск": {"sedan": "600 грн", "universal": "700 грн", "crossover": "800 грн", "bus": "800 грн"},
+        "Експрес кераміка": {"sedan": "700 грн", "universal": "1000 грн", "crossover": "1000 грн", "bus": "1000 грн"},
+        "Блиск зовнішнього пластику": {"sedan": "від 200 грн", "universal": "від 200 грн", "crossover": "від 200 грн", "bus": "від 200 грн"}
+    }
+}
+
+# --- FSM СТАНИ ---
+class BookingState(StatesGroup):
+    waiting_for_car = State()
+    waiting_for_cat = State()
+    waiting_for_service = State()
+    waiting_for_date = State()
+    waiting_for_time = State()
+    waiting_for_phone = State()
+
+class AdminState(StatesGroup):
+    waiting_for_broadcast = State()
+    waiting_for_new_slot = State()
+    waiting_for_toggle_date = State()
+    waiting_for_toggle_slot = State()
+
+# --- ДОПОМІЖНІ ФУНКЦІЇ ---
+def get_available_dates():
+    today = datetime.now()
+    dates = []
+    labels = ["Завтра", "Послезавтра", "Через 2 дні"]
+    for i in range(1, 4):
+        d = today + timedelta(days=i)
+        date_str = d.strftime("%Y-%m-%d")
+        display_date = d.strftime("%d.%m")
+        label = f"{labels[i-1]} ({display_date})"
+        dates.append((date_str, label))
+    return dates
+
+def get_slots_for_date(date_str):
+    blocked = blocked_slots.get(date_str, [])
+    taken_by_users = [b['time'] for b in bookings.values() if b.get('date') == date_str]
+    return [slot for slot in base_slots if slot not in blocked and slot not in taken_by_users]
+
+def main_keyboard(user_id):
+    kb = [
+        [KeyboardButton(text="🧼 Записатися на мийку")],
+        [KeyboardButton(text="📋 Моє бронювання"), KeyboardButton(text="📍 Де ми знаходимось")],
+        [KeyboardButton(text="💳 Прайс-лист")]
+    ]
+    if user_id == ADMIN_ID:
+        kb.append([KeyboardButton(text="⚙️ Панель адміна")])
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+
+# --- СТАРТ ---
+@dp.message(CommandStart())
+async def cmd_start(message: Message, state: FSMContext):
+    await state.clear()
+    all_users.add(message.from_user.id)
+    await message.answer(
+        f"Вітаємо, {message.from_user.first_name}! 🚗💦\n\n"
+        f"Ласкаво просимо до автомийки **AQUA_7** на Молдаванці!\n"
+        f"Молдаванка знає, де миють гарно. ✨\n\n"
+        f"Оберіть потрібну дію в меню нижче:",
+        reply_markup=main_keyboard(message.from_user.id),
+        parse_mode="Markdown"
+    )
+
+# --- ДЕ МИ ЗНАХОДИМОСЬ ---
+@dp.message(F.text == "📍 Де ми знаходимось")
+async def show_location(message: Message, state: FSMContext):
+    await state.clear()
+    text = (
+        "📍 **Автомийка AQUA_7**\n\n"
+        "🏠 **Адреса:** м. Одеса, вул. Михайлівська 44В (Молдаванка)\n"
+        "📞 **Телефон:** +380966195519\n"
+        "⏰ **Графік роботи:** Щодня з 8:00 до 20:00\n\n"
+        "📱 **Наші посилання та навігація:**\n"
+        "• [📸 Instagram](https://www.instagram.com/aqua7.od?stkn=M3ZuZzFkanFkNmJp)\n"
+        "• [💬 Telegram Канал](https://t.me/carwash_aqua7)\n"
+        "• [🗺 Google Maps](https://maps.app.goo.gl/8hUv1WnhSevxcmyv9?g_st=ic)\n"
+        "• [🚗 Waze Навігатор](https://waze.com/ul/hu8mb6f5nx)"
+    )
+    await message.answer(text, parse_mode="Markdown", disable_web_page_preview=True)
+
+# --- ПРАЙС-ЛИСТ ПЕРЕГЛЯД ---
+@dp.message(F.text == "💳 Прайс-лист")
+async def show_price_categories(message: Message, state: FSMContext):
+    await state.clear()
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⭐ Комплекси", callback_data="prc_cat_Комплекси")],
+        [InlineKeyboardButton(text="🚘 Догляд за кузовом", callback_data="prc_cat_Кузов")],
+        [InlineKeyboardButton(text="🪑 Хімчистка та салон", callback_data="prc_cat_Салон")],
+        [InlineKeyboardButton(text="✨ Додаткові послуги", callback_data="prc_cat_Додаткові послуги")],
+        [InlineKeyboardButton(text="🏍 Мийка мотоциклу (300 грн)", callback_data="prc_moto")]
+    ])
+    await message.answer("Оберіть категорію прайсу для перегляду:", reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("prc_cat_"))
+async def show_price_by_cat(callback: CallbackQuery):
+    cat_name = callback.data.replace("prc_cat_", "")
+    text = f"📋 **Прайс-лист: {cat_name}**\n\n"
+    
+    for srv, prices in PRICES[cat_name].items():
+        text += f"▪️ **{srv}**:\n"
+        text += f"   Седан: {prices['sedan']} | Кросовер: {prices['crossover']} | Бус: {prices['bus']}\n"
+    
+    await callback.message.answer(text, parse_mode="Markdown")
+    await callback.answer()
+
+@dp.callback_query(F.data == "prc_moto")
+async def show_moto_price(callback: CallbackQuery):
+    await callback.message.answer("🏍 **Мийка мотоциклу** — 300 грн", parse_mode="Markdown")
+    await callback.answer()
+
+# --- МОЄ БРОНЮВАННЯ ---
+@dp.message(F.text == "📋 Моє бронювання")
+async def show_my_booking(message: Message, state: FSMContext):
+    await state.clear()
+    user_id = message.from_user.id
+    if user_id in bookings:
+        b = bookings[user_id]
+        text = (
+            f"📋 **Ваше активне бронювання:**\n\n"
+            f"🚘 **Тип авто:** {b['car_type']}\n"
+            f"🛠 **Послуга:** {b['service']} ({b['price']})\n"
+            f"📅 **Дата:** {b['date']}\n"
+            f"⏰ **Час:** {b['time']}\n"
+            f"📞 **Телефон:** {b['phone']}\n\n"
+            f"📍Чекаємо на вас: вул. Михайлівська 44В"
+        )
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Перенести запись", callback_data="reschedule")],
+            [InlineKeyboardButton(text="❌ Отменить запись", callback_data="cancel_booking")]
+        ])
+        await message.answer(text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await message.answer("У вас немає активних записів. Натисніть «🧼 Записатися на мийку».")
+
+# --- ПРОЦЕС ЗАПИСУ ---
+@dp.message(F.text == "🧼 Записатися на мийку")
+async def start_booking(message: Message, state: FSMContext):
+    await state.clear()
+    user_id = message.from_user.id
+    all_users.add(user_id)
+
+    if user_id in bookings:
+        await message.answer("У вас вже є активний запис! Перегляньте його у «📋 Моє бронювання».")
+        return
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚗 Седан / Хетчбек", callback_data="car_sedan")],
+        [InlineKeyboardButton(text="🚙 Універсал / Паркетник", callback_data="car_universal")],
+        [InlineKeyboardButton(text="🚘 Кросовер / Позашляховик", callback_data="car_crossover")],
+        [InlineKeyboardButton(text="🚐 Бус / Великий SUV", callback_data="car_bus")],
+        [InlineKeyboardButton(text="🏍 Мотоцикл", callback_data="car_moto")]
+    ])
+    await state.set_state(BookingState.waiting_for_car)
+    await message.answer("Оберіть тип вашого транспортного засобу:", reply_markup=kb)
+
+@dp.callback_query(BookingState.waiting_for_car)
+async def process_car_choice(callback: CallbackQuery, state: FSMContext):
+    car_key = callback.data.replace("car_", "")
+    await state.update_data(car_key=car_key, car_type=CAR_TYPES.get(car_key, "Авто"))
+    await callback.answer()
+
+    if car_key == "moto":
+        await state.update_data(selected_service="Мийка мотоциклу", selected_price="300 грн")
+        dates = get_available_dates()
+        buttons = [[InlineKeyboardButton(text=label, callback_data=f"date_{d_str}")] for d_str, label in dates]
+        kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await state.set_state(BookingState.waiting_for_date)
+        await callback.message.answer("Обрано: 🏍 **Мотоцикл (300 грн)**.\nОберіть день для візиту:", reply_markup=kb, parse_mode="Markdown")
+        return
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⭐ Комплекси", callback_data="cat_Комплекси")],
+        [InlineKeyboardButton(text="🚘 Кузов", callback_data="cat_Кузов")],
+        [InlineKeyboardButton(text="🪑 Салон", callback_data="cat_Салон")],
+        [InlineKeyboardButton(text="✨ Додаткові послуги", callback_data="cat_Додаткові послуги")]
+    ])
+    await state.set_state(BookingState.waiting_for_cat)
+    await callback.message.answer(f"Обрано: **{CAR_TYPES[car_key]}**.\nОберіть категорію послуг:", reply_markup=kb, parse_mode="Markdown")
+
+@dp.callback_query(BookingState.waiting_for_cat)
+async def process_category_choice(callback: CallbackQuery, state: FSMContext):
+    cat_name = callback.data.replace("cat_", "")
+    data = await state.get_data()
+    car_key = data['car_key']
+    await callback.answer()
+
+    buttons = []
+    for srv_name, prices in PRICES[cat_name].items():
+        price = prices.get(car_key, "за запитом")
+        buttons.append([InlineKeyboardButton(text=f"{srv_name} — {price}", callback_data=f"srv_{srv_name}")])
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await state.set_state(BookingState.waiting_for_service)
+    await callback.message.answer(f"Категорія: **{cat_name}**\nОберіть послугу:", reply_markup=kb, parse_mode="Markdown")
+
+@dp.callback_query(BookingState.waiting_for_service)
+async def process_service_choice(callback: CallbackQuery, state: FSMContext):
+    srv_name = callback.data.replace("srv_", "")
+    data = await state.get_data()
+    car_key = data['car_key']
+
+    # Пошук ціни
+    price = "за запитом"
+    for cat in PRICES.values():
+        if srv_name in cat:
+            price = cat[srv_name].get(car_key, "за запитом")
+            break
+
+    await state.update_data(selected_service=srv_name, selected_price=price)
+    await callback.answer()
+
+    dates = get_available_dates()
+    buttons = [[InlineKeyboardButton(text=label, callback_data=f"date_{d_str}")] for d_str, label in dates]
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    
+    await state.set_state(BookingState.waiting_for_date)
+    await callback.message.answer(f"Обрано: **{srv_name}** ({price})\nОберіть день для візиту:", reply_markup=kb, parse_mode="Markdown")
+
+@dp.callback_query(BookingState.waiting_for_date)
+async def process_date_choice(callback: CallbackQuery, state: FSMContext):
+    date_selected = callback.data.replace("date_", "")
+    await state.update_data(selected_date=date_selected)
+    await callback.answer()
+
+    slots = get_slots_for_date(date_selected)
+    if not slots:
+        await callback.message.answer("На жаль, на цю дату всі слоти зайняті. Оберіть інший день.")
+        return
+
+    buttons = [[InlineKeyboardButton(text=f"⏰ {slot}", callback_data=f"time_{slot}")] for slot in slots]
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await state.set_state(BookingState.waiting_for_time)
+    await callback.message.answer(f"Обрано дату: **{date_selected}**.\nОберіть час:", reply_markup=kb, parse_mode="Markdown")
+
+@dp.callback_query(BookingState.waiting_for_time)
+async def process_time_choice(callback: CallbackQuery, state: FSMContext):
+    time_selected = callback.data.replace("time_", "")
+    await state.update_data(selected_time=time_selected)
+    await callback.answer()
+
+    contact_kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="📱 Поділитися контактом", request_contact=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+    await state.set_state(BookingState.waiting_for_phone)
+    await callback.message.answer("Натисніть кнопку нижче, щоб поділитися номером для підтвердження:", reply_markup=contact_kb)
+
+@dp.message(BookingState.waiting_for_phone)
+async def process_phone(message: Message, state: FSMContext):
+    phone = message.contact.phone_number if message.contact else message.text
+    data = await state.get_data()
+    user_id = message.from_user.id
+    user_name = message.from_user.full_name
+
+    bookings[user_id] = {
+        "car_type": data['car_type'],
+        "service": data['selected_service'],
+        "price": data['selected_price'],
+        "date": data['selected_date'],
+        "time": data['selected_time'],
+        "phone": phone,
+        "name": user_name
+    }
+
+    await state.clear()
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Перенести запись", callback_data="reschedule")],
+        [InlineKeyboardButton(text="❌ Отменить запись", callback_data="cancel_booking")]
+    ])
+    
+    await message.answer("✅ Контакт отримано!", reply_markup=main_keyboard(user_id))
+    await message.answer(
+        f"✅ **Запис успішно підтверджено!**\n\n"
+        f"🚘 **Тип авто:** {data['car_type']}\n"
+        f"🛠 **Послуга:** {data['selected_service']} ({data['selected_price']})\n"
+        f"📅 **Дата:** {data['selected_date']}\n"
+        f"⏰ **Час:** {data['selected_time']}\n"
+        f"📍 **Адреса:** м. Одеса, вул. Михайлівська 44В\n\n"
+        f"Чекаємо на вас! Керувати записом можна нижче:",
+        reply_markup=kb,
+        parse_mode="Markdown"
+    )
+
+    try:
+        await bot.send_message(
+            ADMIN_ID,
+            f"🚨 **НОВИЙ ЗАПИС (AQUA_7)!**\n\n"
+            f"👤 **Клієнт:** {user_name} (@{message.from_user.username or 'немає'})\n"
+            f"📞 **Тел:** {phone}\n"
+            f"🚘 **Тип:** {data['car_type']}\n"
+            f"🛠 **Послуга:** {data['selected_service']} ({data['selected_price']})\n"
+            f"📅 **Дата:** {data['selected_date']}\n"
+            f"⏰ **Час:** {data['selected_time']}",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logging.error(f"Error notifying admin: {e}")
+
+# --- СКАСУВАННЯ ТА ПЕРЕНОС ---
+@dp.callback_query(F.data == "cancel_booking")
+async def cancel_booking_handler(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    if user_id in bookings:
+        b = bookings.pop(user_id)
+        await callback.message.edit_text("❌ **Ваш запис скасовано.** Чекаємо на вас наступного разу!")
+        await callback.answer("Запис скасовано")
+
+        try:
+            await bot.send_message(
+                ADMIN_ID,
+                f"ℹ️ **СКАСУВАННЯ!** Клієнт {b['name']} скасував запис на {b['date']} {b['time']} ({b['service']})."
+            )
+        except Exception:
+            pass
+    else:
+        await callback.answer("У вас немає активних записів.", show_alert=True)
+
+@dp.callback_query(F.data == "reschedule")
+async def reschedule_booking_handler(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    if user_id in bookings:
+        bookings.pop(user_id)
+        await callback.answer("Запис скасовано. Оберіть нові параметри!")
+        await start_booking(callback.message, state)
+
+# --- ПАНЕЛЬ АДМІНІСТРАТОРА ---
+@dp.message(F.text == "⚙️ Панель адміна")
+@dp.message(Command("admin"))
+async def admin_panel(message: Message, state: FSMContext):
+    await state.clear()
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 Усі активні записи", callback_data="admin_list_bookings")],
+        [InlineKeyboardButton(text="🚫 Заняти / 🟢 Звільнити слот", callback_data="admin_toggle_slot")],
+        [InlineKeyboardButton(text="📢 Зробити розсилку", callback_data="admin_broadcast")],
+        [InlineKeyboardButton(text="➕ Додати новий слот", callback_data="admin_add_slot")]
+    ])
+    await message.answer("🛠 **Панель адміністратора AQUA_7**", reply_markup=kb, parse_mode="Markdown")
+
+@dp.callback_query(F.data == "admin_list_bookings")
+async def admin_list_bookings_handler(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    if callback.from_user.id != ADMIN_ID:
+        return
+
+    if not bookings:
+        await callback.message.answer("Наразі активних записів немає.")
+    else:
+        text = "📋 **Активні записи AQUA_7:**\n\n"
+        for uid, b in bookings.items():
+            text += f"📅 **{b['date']}** ⏰ **{b['time']}** — {b['name']} ({b['phone']})\n   {b['car_type']} | {b['service']} ({b['price']})\n---\n"
+        await callback.message.answer(text, parse_mode="Markdown")
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_toggle_slot")
+async def admin_toggle_slot_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    dates = get_available_dates()
+    buttons = [[InlineKeyboardButton(text=label, callback_data=f"admdate_{d_str}")] for d_str, label in dates]
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await state.set_state(AdminState.waiting_for_toggle_date)
+    await callback.message.answer("Оберіть дату для керування слотами:", reply_markup=kb)
+    await callback.answer()
+
+@dp.callback_query(AdminState.waiting_for_toggle_date)
+async def admin_toggle_slot_date(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    date_str = callback.data.replace("admdate_", "")
+    await state.update_data(admin_date=date_str)
+
+    blocked = blocked_slots.get(date_str, [])
+    buttons = []
+    for slot in base_slots:
+        status = "🚫 Заблокований" if slot in blocked else "🟢 Вільний"
+        buttons.append([InlineKeyboardButton(text=f"{slot} — {status}", callback_data=f"admslot_{slot}")])
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await state.set_state(AdminState.waiting_for_toggle_slot)
+    await callback.message.answer(f"Дата: **{date_str}**.\nНатисніть на слот для зміни статусу:", reply_markup=kb, parse_mode="Markdown")
+    await callback.answer()
+
+@dp.callback_query(AdminState.waiting_for_toggle_slot)
+async def admin_toggle_slot_action(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    slot = callback.data.replace("admslot_", "")
+    data = await state.get_data()
+    date_str = data['admin_date']
+
+    if date_str not in blocked_slots:
+        blocked_slots[date_str] = []
+
+    if slot in blocked_slots[date_str]:
+        blocked_slots[date_str].remove(slot)
+        msg = f"🟢 Слот `{slot}` на `{date_str}` тепер **ВІЛЬНИЙ**!"
+    else:
+        blocked_slots[date_str].append(slot)
+        msg = f"🚫 Слот `{slot}` на `{date_str}` тепер **ЗАБЛОКОВАНИЙ**!"
+
+    await callback.message.answer(msg, parse_mode="Markdown")
+    await state.clear()
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_broadcast")
+async def admin_broadcast_handler(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    await state.set_state(AdminState.waiting_for_broadcast)
+    await callback.message.answer("Надішліть текст або фото з описом для розсилки:")
+    await callback.answer()
+
+@dp.message(AdminState.waiting_for_broadcast)
+async def process_broadcast(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    count = 0
+    await message.answer("🚀 Розсилка запущена...")
+    for uid in list(all_users):
+        try:
+            if message.photo:
+                await bot.send_photo(uid, photo=message.photo[-1].file_id, caption=message.caption)
+            else:
+                await bot.send_message(uid, message.text)
+            count += 1
+            await asyncio.sleep(0.05)
+        except Exception:
+            pass
+
+    await message.answer(f"✅ Успішно доставлено **{count}** користувачам.", parse_mode="Markdown")
+    await state.clear()
+
+@dp.callback_query(F.data == "admin_add_slot")
+async def admin_add_slot_handler(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    await state.set_state(AdminState.waiting_for_new_slot)
+    await callback.message.answer("Введіть новий час слоту (наприклад `19:00`):")
+    await callback.answer()
+
+@dp.message(AdminState.waiting_for_new_slot)
+async def process_add_slot(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
+    new_slot = message.text.strip()
+    if new_slot not in base_slots:
+        base_slots.append(new_slot)
+        base_slots.sort()
+        await message.answer(f"✅ Слот `{new_slot}` додано!")
+    await state.clear()
+
+# --- ВЕБ-СЕРВЕР ДЛЯ РЕНДЕРА ---
+async def handle_ping(request):
+    return web.Response(text="AQUA_7 Bot is running!")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
+    await site.start()
+
+async def main():
+    logging.basicConfig(level=logging.INFO)
+    await start_web_server()
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
