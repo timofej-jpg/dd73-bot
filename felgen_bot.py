@@ -270,7 +270,7 @@ async def select_date(callback: CallbackQuery, state: FSMContext):
 
     buttons = []
     row = []
-    for hour in range(9, 19):
+    for hour in range(9, 18):
         slot_key = f"{chosen_date} {hour:02d}:00"
         if slots.get(slot_key, {}).get("status") == "free":
             row.append(InlineKeyboardButton(text=f"{hour:02d}:00", callback_data=f"time_{hour:02d}:00"))
