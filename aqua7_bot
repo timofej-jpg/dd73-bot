@@ -148,29 +148,28 @@ async def cmd_start(message: Message, state: FSMContext):
     all_users.add(message.from_user.id)
     await message.answer(
         f"Вітаємо, {message.from_user.first_name}! 🚗💦\n\n"
-        f"Ласкаво просимо до автомийки **AQUA_7** на Молдаванці!\n"
+        f"Ласкаво просимо до автомийки **AQUA 7** на Молдаванці!\n"
         f"Молдаванка знає, де миють гарно. ✨\n\n"
         f"Оберіть потрібну дію в меню нижче:",
         reply_markup=main_keyboard(message.from_user.id),
-        parse_mode="Markdown"
     )
 
 # --- ДЕ МИ ЗНАХОДИМОСЬ ---
 @dp.message(F.text == "📍 Де ми знаходимось")
 async def show_location(message: Message, state: FSMContext):
     await state.clear()
-    text = (
-        "📍 **Автомийка AQUA_7**\n\n"
-        "🏠 **Адреса:** м. Одеса, вул. Михайлівська 44В (Молдаванка)\n"
-        "📞 **Телефон:** +380966195519\n"
-        "⏰ **Графік роботи:** Щодня з 8:00 до 20:00\n\n"
-        "📱 **Наші посилання та навігація:**\n"
-        "• [📸 Instagram](https://www.instagram.com/aqua7.od?stkn=M3ZuZzFkanFkNmJp)\n"
-        "• [💬 Telegram Канал](https://t.me/carwash_aqua7)\n"
-        "• [🗺 Google Maps](https://maps.app.goo.gl/8hUv1WnhSevxcmyv9?g_st=ic)\n"
-        "• [🚗 Waze Навігатор](https://waze.com/ul/hu8mb6f5nx)"
-    )
-    await message.answer(text, parse_mode="Markdown", disable_web_page_preview=True)
+ text = (
+    "📍 Автомийка AQUA 7\n\n"
+    "🏠 Адреса: м. Одеса, вул. ...\n"
+    "📞 Телефон: +380966195519\n"
+    "⏰ Графік роботи: Щодня з 8:00 до 20:00\n\n"
+    "📱 Наші посилання та навігація:\n"
+    "• Instagram: https://www.instagram.com/...\n"
+    "• Telegram Канал: https://t.me/...\n"
+    "• Google Maps: https://maps.app.goo.gl/...\n"
+    "• Waze Навігатор: https://waze.com/..."
+)
+    await message.answer(text, disable_web_page_preview=True)
 
 # --- ПРАЙС-ЛИСТ ПЕРЕГЛЯД ---
 @dp.message(F.text == "💳 Прайс-лист")
