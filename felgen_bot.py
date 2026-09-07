@@ -141,7 +141,7 @@ async def show_location(message: Message, state: FSMContext):
         "📱 Наші посилання та навігація:\n"
         "• Instagram: https://www.instagram.com/felgen_welt\n"
         "• Telegram Канал: https://t.me/felgen_welt\n"
-        "• Google Maps: https://maps.app.goo.gl/"
+        "• Google Maps: https://maps.app.goo.gl/2u9m2nLsm2iSv8Ra8?g_st=ic"
     )
     await message.answer(text, disable_web_page_preview=True)
 
@@ -270,7 +270,7 @@ async def select_date(callback: CallbackQuery, state: FSMContext):
 
     buttons = []
     row = []
-    for hour in range(8, 20):
+    for hour in range(9, 19):
         slot_key = f"{chosen_date} {hour:02d}:00"
         if slots.get(slot_key, {}).get("status") == "free":
             row.append(InlineKeyboardButton(text=f"{hour:02d}:00", callback_data=f"time_{hour:02d}:00"))
