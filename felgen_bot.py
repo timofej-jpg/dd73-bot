@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+from datetime import datetime, timedelta
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
@@ -26,19 +27,51 @@ dp = Dispatcher(storage=MemoryStorage())
 
 # --- БАЗА ДАНИХ У ПАМ'ЯТІ ---
 all_users = set()
-available_slots = ["10:00", "12:00", "14:00", "16:00", "18:00"]
+base_slots = ["10:00", "12:00", "14:00", "16:00", "18:00"]
+
+# Блокування слотів за датами: {"2026-09-08": ["10:00", "12:00"]}
+blocked_slots = {}
+
+# Записи: {user_id: {"service": ..., "radius": ..., "date": ..., "time": ..., "phone": ..., "name": ...}}
 bookings = {}
 
 # --- FSM СТАНИ ---
 class BookingState(StatesGroup):
     waiting_for_service = State()
     waiting_for_radius = State()
+    waiting_for_date = State()
     waiting_for_time = State()
     waiting_for_phone = State()
 
 class AdminState(StatesGroup):
     waiting_for_broadcast = State()
     waiting_for_new_slot = State()
+    waiting_for_toggle_date = State()
+    waiting_for_toggle_slot = State()
+
+# --- ДОПОМІЖНІ ФУНКЦІЇ ДАТ ---
+def get_available_dates():
+    today = datetime.now()
+    dates = []
+    labels = ["Завтра", "Послезавтра", "Через 2 дні"]
+    for i in range(1, 4):
+        d = today + timedelta(days=i)
+        date_str = d.strftime("%Y-%m-%d")
+        display_date = d.strftime("%d.%m")
+        label = f"{labels[i-1]} ({display_date})"
+        dates.append((date_str, label))
+    return dates
+
+def get_slots_for_date(date_str):
+    blocked = blocked_slots.get(date_str, [])
+    # Отримуємо слоти, зайняті іншими користувачами на цю дату
+    taken_by_users = [b['time'] for b in bookings.values() if b.get('date') == date_str]
+    
+    available = []
+    for slot in base_slots:
+        if slot not in blocked and slot not in taken_by_users:
+            available.append(slot)
+    return available
 
 # --- МЕНЮ КНОПОК ---
 def main_keyboard(user_id):
@@ -80,7 +113,6 @@ async def show_location(message: Message, state: FSMContext):
     )
     await message.answer(text, parse_mode="Markdown", disable_web_page_preview=True)
 
-
 # --- ПОСЛУГИ ТА ЦІНИ ---
 @dp.message(F.text == "💰 Послуги та ціни")
 async def show_prices(message: Message, state: FSMContext):
@@ -113,6 +145,7 @@ async def show_my_booking(message: Message, state: FSMContext):
             f"📋 **Ваше активне бронювання:**\n\n"
             f"🛠 **Послуга:** {b['service']}\n"
             f"🛞 **Радіус:** {b['radius']}\n"
+            f"📅 **Дата:** {b['date']}\n"
             f"⏰ **Час:** {b['time']}\n"
             f"📞 **Телефон:** {b['phone']}\n\n"
             f"📍 Чекаємо на вас: вул. Дмитрівська 109"
@@ -170,15 +203,32 @@ async def process_radius(callback: CallbackQuery, state: FSMContext):
     await state.update_data(selected_radius=radius)
     await callback.answer()
 
-    if not available_slots:
-        await callback.message.answer("На жаль, вільних слотів немає. Спробуйте пізніше або зверніться до адміністратора.")
-        await state.clear()
+    dates = get_available_dates()
+    buttons = [[InlineKeyboardButton(text=label, callback_data=f"date_{d_str}")] for d_str, label in dates]
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    
+    await state.set_state(BookingState.waiting_for_date)
+    await callback.message.answer("Оберіть зручний день для візиту:", reply_markup=kb)
+
+@dp.callback_query(BookingState.waiting_for_date)
+async def process_date(callback: CallbackQuery, state: FSMContext):
+    date_selected = callback.data.replace("date_", "")
+    await state.update_data(selected_date=date_selected)
+    await callback.answer()
+
+    slots = get_slots_for_date(date_selected)
+    if not slots:
+        await callback.message.answer("На жаль, на цю дату всі слоти зайняті. Оберіть іншу дату.")
+        dates = get_available_dates()
+        buttons = [[InlineKeyboardButton(text=label, callback_data=f"date_{d_str}")] for d_str, label in dates]
+        kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await callback.message.answer("Оберіть день:", reply_markup=kb)
         return
 
-    buttons = [[InlineKeyboardButton(text=f"⏰ {slot}", callback_data=f"time_{slot}")] for slot in available_slots]
+    buttons = [[InlineKeyboardButton(text=f"⏰ {slot}", callback_data=f"time_{slot}")] for slot in slots]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await state.set_state(BookingState.waiting_for_time)
-    await callback.message.answer("Оберіть зручний час для візиту:", reply_markup=kb)
+    await callback.message.answer(f"Обрано дату **{date_selected}**.\nТепер оберіть час:", reply_markup=kb, parse_mode="Markdown")
 
 @dp.callback_query(BookingState.waiting_for_time)
 async def process_time(callback: CallbackQuery, state: FSMContext):
@@ -200,18 +250,18 @@ async def process_phone(message: Message, state: FSMContext):
     data = await state.get_data()
     user_id = message.from_user.id
     user_name = message.from_user.full_name
+
+    date_selected = data['selected_date']
     time_selected = data['selected_time']
 
     bookings[user_id] = {
         "service": data['selected_service'],
         "radius": data['selected_radius'],
+        "date": date_selected,
         "time": time_selected,
         "phone": phone,
         "name": user_name
     }
-
-    if time_selected in available_slots:
-        available_slots.remove(time_selected)
 
     await state.clear()
 
@@ -225,6 +275,7 @@ async def process_phone(message: Message, state: FSMContext):
         f"✅ **Запис успішно оформлено!**\n\n"
         f"🛠 **Послуга:** {data['selected_service']}\n"
         f"🛞 **Радіус:** {data['selected_radius']}\n"
+        f"📅 **Дата:** {date_selected}\n"
         f"⏰ **Час:** {time_selected}\n"
         f"📍 **Адреса:** м. Одеса, вул. Дмитрівська 109\n\n"
         f"Чекаємо на вас! Якщо плани зміняться, скористайтесь кнопками нижче.",
@@ -240,6 +291,7 @@ async def process_phone(message: Message, state: FSMContext):
             f"📞 **Тел:** {phone}\n"
             f"🛠 **Послуга:** {data['selected_service']}\n"
             f"🛞 **Радіус:** {data['selected_radius']}\n"
+            f"📅 **Дата:** {date_selected}\n"
             f"⏰ **Час:** {time_selected}",
             parse_mode="Markdown"
         )
@@ -252,17 +304,13 @@ async def cancel_booking_handler(callback: CallbackQuery):
     user_id = callback.from_user.id
     if user_id in bookings:
         b = bookings.pop(user_id)
-        if b['time'] not in available_slots:
-            available_slots.append(b['time'])
-            available_slots.sort()
-
-        await callback.message.edit_text("❌ **Ваш запис успішно скасовано.** Час знову вільний для бронювання.")
+        await callback.message.edit_text("❌ **Ваш запис успішно скасовано.** Дякуємо, що повідомили!")
         await callback.answer("Запис скасовано")
 
         try:
             await bot.send_message(
                 ADMIN_ID,
-                f"ℹ️ **СКАСУВАННЯ ЗАПИСУ!**\nКлієнт {b['name']} скасував запис на {b['time']} ({b['service']}). Слот знову вільний."
+                f"ℹ️ **СКАСУВАННЯ ЗАПИСУ!**\nКлієнт {b['name']} скасував запис на {b['date']} {b['time']} ({b['service']}). Слот знову вільний."
             )
         except Exception:
             pass
@@ -273,11 +321,7 @@ async def cancel_booking_handler(callback: CallbackQuery):
 async def reschedule_booking_handler(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     if user_id in bookings:
-        b = bookings.pop(user_id)
-        if b['time'] not in available_slots:
-            available_slots.append(b['time'])
-            available_slots.sort()
-
+        bookings.pop(user_id)
         await callback.answer("Старий запис скинуто. Оберіть новий час!")
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔄 Сезонна переобувка", callback_data="srv_tire")],
@@ -286,7 +330,7 @@ async def reschedule_booking_handler(callback: CallbackQuery, state: FSMContext)
             [InlineKeyboardButton(text="🇩🇪 Підбір шин/дисків з Німеччини", callback_data="srv_import")]
         ])
         await state.set_state(BookingState.waiting_for_service)
-        await callback.message.answer("Старий запис скинуто. Оберіть послугу заново:", reply_markup=kb)
+        await callback.message.answer("Старий запис скасовано. Оберіть послугу заново:", reply_markup=kb)
 
 # --- ПАНЕЛЬ АДМІНІСТРАТОРА ---
 @dp.message(F.text == "⚙️ Панель адміна")
@@ -298,8 +342,9 @@ async def admin_panel(message: Message, state: FSMContext):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📋 Усі активні записи", callback_data="admin_list_bookings")],
+        [InlineKeyboardButton(text="🚫 Заняти / 🟢 Звільнити слот", callback_data="admin_toggle_slot")],
         [InlineKeyboardButton(text="📢 Зробити розсилку", callback_data="admin_broadcast")],
-        [InlineKeyboardButton(text="➕ Додати вільний слот", callback_data="admin_add_slot")]
+        [InlineKeyboardButton(text="➕ Додати новий час слоту", callback_data="admin_add_slot")]
     ])
     await message.answer("🛠 **Панель адміністратора Felgen Welt**", reply_markup=kb, parse_mode="Markdown")
 
@@ -310,12 +355,64 @@ async def admin_list_bookings_handler(callback: CallbackQuery, state: FSMContext
         return
 
     if not bookings:
-        await callback.message.answer("На даний момент активних записів немає.")
+        await callback.message.answer("На даний момент активних записів від клієнтів немає.")
     else:
         text = "📋 **Список усіх поточних записів:**\n\n"
         for uid, b in bookings.items():
-            text += f"⏰ **{b['time']}** — {b['name']} ({b['phone']})\n   Послуга: {b['service']} [{b['radius']}]\n---\n"
+            text += f"📅 **{b['date']}** ⏰ **{b['time']}** — {b['name']} ({b['phone']})\n   Послуга: {b['service']} [{b['radius']}]\n---\n"
         await callback.message.answer(text, parse_mode="Markdown")
+    await callback.answer()
+
+# --- КЕРУВАННЯ СЛОТАМИ (ЗАЙНЯТИ / ЗВІЛЬНИТИ) ---
+@dp.callback_query(F.data == "admin_toggle_slot")
+async def admin_toggle_slot_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    dates = get_available_dates()
+    buttons = [[InlineKeyboardButton(text=label, callback_data=f"admdate_{d_str}")] for d_str, label in dates]
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await state.set_state(AdminState.waiting_for_toggle_date)
+    await callback.message.answer("Оберіть дату, на якій хочете зайняти або звільнити слот:", reply_markup=kb)
+    await callback.answer()
+
+@dp.callback_query(AdminState.waiting_for_toggle_date)
+async def admin_toggle_slot_date(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    date_str = callback.data.replace("admdate_", "")
+    await state.update_data(admin_date=date_str)
+
+    blocked = blocked_slots.get(date_str, [])
+    buttons = []
+    for slot in base_slots:
+        status = "🚫 Заблокований" if slot in blocked else "🟢 Вільний"
+        buttons.append([InlineKeyboardButton(text=f"{slot} — {status}", callback_data=f"admslot_{slot}")])
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await state.set_state(AdminState.waiting_for_toggle_slot)
+    await callback.message.answer(f"Дата: **{date_str}**.\nНатисніть на слот, щоб змінити його статус:", reply_markup=kb, parse_mode="Markdown")
+    await callback.answer()
+
+@dp.callback_query(AdminState.waiting_for_toggle_slot)
+async def admin_toggle_slot_action(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    slot = callback.data.replace("admslot_", "")
+    data = await state.get_data()
+    date_str = data['admin_date']
+
+    if date_str not in blocked_slots:
+        blocked_slots[date_str] = []
+
+    if slot in blocked_slots[date_str]:
+        blocked_slots[date_str].remove(slot)
+        msg = f"🟢 Слот `{slot}` на `{date_str}` тепер **ВІЛЬНИЙ**!"
+    else:
+        blocked_slots[date_str].append(slot)
+        msg = f"🚫 Слот `{slot}` на `{date_str}` тепер **ЗАЙНЯТИЙ (ЗАБЛОКОВАНИЙ)**!"
+
+    await callback.message.answer(msg, parse_mode="Markdown")
+    await state.clear()
     await callback.answer()
 
 # --- РОЗСИЛКА ---
@@ -348,7 +445,7 @@ async def process_broadcast(message: Message, state: FSMContext):
     await message.answer(f"✅ Розсилку успішно завершено! Доставлено **{count}** користувачам.", parse_mode="Markdown")
     await state.clear()
 
-# --- ДОДАВАННЯ СЛОТА ---
+# --- ДОДАВАННЯ БАЗОВОГО СЛОТА ---
 @dp.callback_query(F.data == "admin_add_slot")
 async def admin_add_slot_handler(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID:
@@ -362,10 +459,10 @@ async def process_add_slot(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
         return
     new_slot = message.text.strip()
-    if new_slot not in available_slots:
-        available_slots.append(new_slot)
-        available_slots.sort()
-        await message.answer(f"✅ Слот `{new_slot}` успішно додано!")
+    if new_slot not in base_slots:
+        base_slots.append(new_slot)
+        base_slots.sort()
+        await message.answer(f"✅ Слот `{new_slot}` успішно додано в загальний розклад!")
     else:
         await message.answer("Такий слот вже існує.")
     await state.clear()
