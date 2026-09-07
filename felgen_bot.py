@@ -149,7 +149,7 @@ async def show_location(message: Message, state: FSMContext):
     text = (
         "📍 Студія дисків Felgen Welt\n\n"
         "🏠 Адреса: м. Одеса\n"
-        "📞 Телефон: +380966195519\n"
+        "📞 Телефон: +380630449999\n"
         "⏰ Графік роботи:\n"
         "• Пн - Сб: 09:00 - 19:00\n"
         "• Нд: 09:00 - 18:00\n\n"
@@ -358,7 +358,7 @@ async def enter_phone(message: Message, state: FSMContext):
         f"⚙️ Категорія: {cat}\n"
         f"🛠 Послуги:\n{srv_list_str}\n"
         f"💰 Орієнтовна вартість: {total_sum} грн\n\n"
-        f"Чекаємо на вас! Якщо виникнуть питання: +380966195519"
+        f"Чекаємо на вас! Якщо виникнуть питання: +380630449999"
     )
     await message.answer(client_text, reply_markup=main_keyboard(message.from_user.id))
 
