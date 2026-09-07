@@ -71,13 +71,15 @@ async def show_location(message: Message, state: FSMContext):
     text = (
         "📍 **Felgen Welt** — шиномонтаж та реставрація дисків\n\n"
         "🏠 **Адреса:** м. Одеса, вул. Дмитрівська 109\n"
+        "📞 **Телефон:** +380630449999\n"
         "⏰ **Графік роботи:** Пн-Сб з 9:00 до 19:00\n\n"
         "📱 **Наші соціальні мережі та навігація:**\n"
-        "• [📸 Instagram](https://instagram.com)\n"
-        "• [🗺 Google Maps](https://maps.google.com)\n"
-        "• [🚗 Waze Навігатор](https://waze.com)"
+        "• [📸 Instagram](https://www.instagram.com/felgen_welt?stkn=N2w0YWxlZXNjdHN0)\n"
+        "• [🗺 Google Maps](https://maps.app.goo.gl/hdvxCzKzbyeuNijR9?g_st=ic)\n"
+        "• [🚗 Waze Навігатор](https://waze.com/ul/hu8mb54ps6)"
     )
     await message.answer(text, parse_mode="Markdown", disable_web_page_preview=True)
+
 
 # --- ПОСЛУГИ ТА ЦІНИ ---
 @dp.message(F.text == "💰 Послуги та ціни")
