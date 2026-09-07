@@ -55,6 +55,7 @@ dp.callback_query.middleware(AntiSpamMiddleware())
 all_users = set()
 
 # Слоты: "YYYY-MM-DD HH:MM" -> Dict
+# status: "free" | "booked" | "blocked"
 slots = {}
 
 def init_default_slots():
@@ -64,7 +65,7 @@ def init_default_slots():
         for hour in range(8, 20):
             slot_key = f"{day_date} {hour:02d}:00"
             if slot_key not in slots:
-                slots[slot_key] = {"status": "free", "client_name": "", "client_phone": "", "car_model": "", "services": []}
+                slots[slot_key] = {"status": "free", "client_name": "", "client_phone": "", "services": []}
 
 init_default_slots()
 
@@ -73,12 +74,11 @@ class Booking(StatesGroup):
     services = State()
     date = State()
     time = State()
-    car = State()
-    name = State()
     phone = State()
 
 class Admin(StatesGroup):
     broadcast = State()
+    manage_slots_date = State()
 
 # --- КЛАВІАТУРИ ---
 def main_keyboard(user_id):
@@ -201,7 +201,7 @@ async def back_to_prices(callback: CallbackQuery):
     await callback.message.edit_text("Оберіть категорію транспорту для перегляду цінового прайсу:", reply_markup=kb)
     await callback.answer()
 
-# --- ПРОЦЕС ЗАПИСУ ---
+# --- ПРОЦЕС ЗАПИСУ (ТІЛЬКИ КНОПКИ) ---
 @dp.message(F.text == "📅 Записатися на мийку")
 async def start_booking(message: Message, state: FSMContext):
     await state.clear()
@@ -212,7 +212,7 @@ async def start_booking(message: Message, state: FSMContext):
         [InlineKeyboardButton(text="🚌 Спец / Бус", callback_data="cat_Bus / SUV")],
         [InlineKeyboardButton(text="🏍️ Мотоцикли", callback_data="cat_Moto")]
     ])
-    await message.answer("Крок 1/6: Оберіть категорію вашого авто:", reply_markup=kb)
+    await message.answer("Крок 1/4: Оберіть категорію вашого авто:", reply_markup=kb)
     await state.set_state(Booking.category)
 
 @dp.callback_query(Booking.category, F.data.startswith("cat_"))
@@ -239,7 +239,7 @@ async def render_services_menu(message_or_query, cat_name, selected):
     buttons.append([InlineKeyboardButton(text="❌ Скасувати запис", callback_data="cancel_booking")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     
-    text = f"Крок 2/6: Оберіть послуги для {cat_name} (можна декілька):"
+    text = f"Крок 2/4: Оберіть послуги для {cat_name} (можна декілька):"
     if isinstance(message_or_query, Message):
         await message_or_query.edit_text(text, reply_markup=kb)
     else:
@@ -280,7 +280,7 @@ async def done_services(callback: CallbackQuery, state: FSMContext):
     buttons.append([InlineKeyboardButton(text="❌ Скасувати запис", callback_data="cancel_booking")])
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await callback.message.edit_text("Крок 3/6: Оберіть дату для запису:", reply_markup=kb)
+    await callback.message.edit_text("Крок 3/4: Оберіть дату для запису:", reply_markup=kb)
     await state.set_state(Booking.date)
     await callback.answer()
 
@@ -308,7 +308,7 @@ async def select_date(callback: CallbackQuery, state: FSMContext):
     buttons.append([InlineKeyboardButton(text="❌ Скасувати запис", callback_data="cancel_booking")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     
-    await callback.message.edit_text(f"Крок 4/6: Оберіть час на {chosen_date}:", reply_markup=kb)
+    await callback.message.edit_text(f"Крок 4/4: Оберіть час на {chosen_date}:", reply_markup=kb)
     await state.set_state(Booking.time)
     await callback.answer()
 
@@ -317,42 +317,30 @@ async def select_time(callback: CallbackQuery, state: FSMContext):
     chosen_time = callback.data.replace("time_", "")
     await state.update_data(time=chosen_time)
     
-    await callback.message.edit_text("Крок 5/6: Напишіть марку та модель вашого авто (наприклад: BMW X5):")
-    await state.set_state(Booking.car)
-    await callback.answer()
-
-@dp.message(Booking.car)
-async def enter_car(message: Message, state: FSMContext):
-    await state.update_data(car=message.text)
-    await message.answer("Крок 6/6: Напишіть ваше ім'я:")
-    await state.set_state(Booking.name)
-
-@dp.message(Booking.name)
-async def enter_name(message: Message, state: FSMContext):
-    await state.update_data(name=message.text)
-    
     kb = ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="📱 Поділитися контактом", request_contact=True)]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
-    await message.answer("Останній крок: Поділіться вашим номером телефону за допомогою кнопки нижче:", reply_markup=kb)
+    await callback.message.delete()
+    await callback.message.answer("Завершення: Поділіться вашим номером телефону за допомогою кнопки нижче:", reply_markup=kb)
     await state.set_state(Booking.phone)
+    await callback.answer()
 
 @dp.message(Booking.phone)
 async def enter_phone(message: Message, state: FSMContext):
     if message.contact:
         phone = message.contact.phone_number
+        client_name = message.contact.first_name or message.from_user.first_name
     else:
         phone = message.text
+        client_name = message.from_user.first_name
 
     data = await state.get_data()
     cat = data['category']
     selected = data['selected_services']
     chosen_date = data['date']
     chosen_time = data['time']
-    car = data['car']
-    client_name = data['name']
 
     slot_key = f"{chosen_date} {chosen_time}"
     
@@ -360,7 +348,6 @@ async def enter_phone(message: Message, state: FSMContext):
         "status": "booked",
         "client_name": client_name,
         "client_phone": phone,
-        "car_model": car,
         "services": selected
     }
 
@@ -371,7 +358,7 @@ async def enter_phone(message: Message, state: FSMContext):
         f"✅ Ваш запис успішно підтверджено!\n\n"
         f"📍 Автомийка AQUA 7 (вул. Михайлівська 44В)\n"
         f"📅 Дата та час: {chosen_date} о {chosen_time}\n"
-        f"🚗 Авто: {car} ({cat})\n"
+        f"🚘 Категорія: {cat}\n"
         f"🛠 Послуги:\n{srv_list_str}\n"
         f"💰 Орієнтовна вартість: {total_sum} грн\n\n"
         f"Чекаємо на вас! Якщо виникнуть питання: +380966195519"
@@ -383,7 +370,7 @@ async def enter_phone(message: Message, state: FSMContext):
         f"📅 Дата/Час: {chosen_date} {chosen_time}\n"
         f"👤 Клієнт: {client_name}\n"
         f"📞 Телефон: {phone}\n"
-        f"🚗 Авто: {car} ({cat})\n"
+        f"🚘 Категорія: {cat}\n"
         f"🛠 Послуги:\n{srv_list_str}\n"
         f"💰 Сума: {total_sum} грн"
     )
@@ -409,6 +396,7 @@ async def admin_panel(message: Message):
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📋 Переглянути всі записи", callback_data="admin_view_bookings")],
+        [InlineKeyboardButton(text="⏰ Керування слотами часу", callback_data="admin_manage_slots")],
         [InlineKeyboardButton(text="📢 Розсилка користувачам", callback_data="admin_broadcast")]
     ])
     await message.answer("⚙️ Панель адміністратора AQUA 7:", reply_markup=kb)
@@ -429,12 +417,92 @@ async def admin_view_bookings(callback: CallbackQuery):
     text = "📋 Активні записи AQUA 7:\n\n"
     for slot_time, data in sorted(booked.items()):
         srvs = ", ".join(data["services"])
-        text += f"⏰ {slot_time}\n👤 {data['client_name']} ({data['client_phone']})\n🚗 {data['car_model']}\n🛠 {srvs}\n---\n"
+        text += f"⏰ {slot_time}\n👤 {data['client_name']} ({data['client_phone']})\n🛠 {srvs}\n---\n"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_admin")]
     ])
     await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
+
+# --- КЕРУВАННЯ СЛОТАМИ ЧАСУ ---
+@dp.callback_query(F.data == "admin_manage_slots")
+async def admin_manage_slots(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        return
+
+    init_default_slots()
+    now = datetime.now()
+    dates = [(now + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    
+    buttons = []
+    for d in dates:
+        dt_obj = datetime.strptime(d, "%Y-%m-%d")
+        formatted = dt_obj.strftime("%d.%m (%a)")
+        buttons.append([InlineKeyboardButton(text=formatted, callback_data=f"admdate_{d}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_admin")])
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await callback.message.edit_text("⏰ Керування слотами: Оберіть дату:", reply_markup=kb)
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("admdate_"))
+async def admin_select_date_slots(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        return
+
+    chosen_date = callback.data.replace("admdate_", "")
+    await render_admin_slots_menu(callback.message, chosen_date)
+    await callback.answer()
+
+async def render_admin_slots_menu(message, chosen_date):
+    buttons = []
+    row = []
+    for hour in range(8, 20):
+        slot_key = f"{chosen_date} {hour:02d}:00"
+        st = slots.get(slot_key, {}).get("status", "free")
+        
+        if st == "free":
+            label = f"🟢 {hour:02d}:00"
+        elif st == "blocked":
+            label = f"🔴 {hour:02d}:00"
+        else:
+            label = f"🔵 {hour:02d}:00"
+
+        row.append(InlineKeyboardButton(text=label, callback_data=f"toggle_slot_{chosen_date}_{hour:02d}:00"))
+        if len(row) == 3:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    buttons.append([InlineKeyboardButton(text="🔙 Назад до дат", callback_data="admin_manage_slots")])
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    text = f"⏰ Керування слотами на {chosen_date}:\n🟢 Вільний  |  🔴 Заблокований  |  🔵 Зайнятий\n(Натисніть на слот, щоб заблокувати або розблокувати)"
+    await message.edit_text(text, reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("toggle_slot_"))
+async def toggle_slot_status(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        return
+
+    raw = callback.data.replace("toggle_slot_", "")
+    parts = raw.split("_")
+    chosen_date = parts[0]
+    chosen_time = parts[1]
+    slot_key = f"{chosen_date} {chosen_time}"
+
+    current_status = slots.get(slot_key, {}).get("status", "free")
+    if current_status == "free":
+        slots[slot_key] = {"status": "blocked", "client_name": "", "client_phone": "", "services": []}
+    elif current_status == "blocked":
+        slots[slot_key] = {"status": "free", "client_name": "", "client_phone": "", "services": []}
+    else:
+        await callback.answer("Цей слот вже заброньований клієнтом!", show_alert=True)
+        return
+
+    await render_admin_slots_menu(callback.message, chosen_date)
     await callback.answer()
 
 @dp.callback_query(F.data == "back_to_admin")
@@ -443,6 +511,7 @@ async def back_to_admin_cb(callback: CallbackQuery):
         return
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📋 Переглянути всі записи", callback_data="admin_view_bookings")],
+        [InlineKeyboardButton(text="⏰ Керування слотами часу", callback_data="admin_manage_slots")],
         [InlineKeyboardButton(text="📢 Розсилка користувачам", callback_data="admin_broadcast")]
     ])
     await callback.message.edit_text("⚙️ Панель адміністратора AQUA 7:", reply_markup=kb)
