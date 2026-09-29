@@ -1,216 +1,131 @@
-const tg = window.Telegram.WebApp;
-tg.expand();
+const tg = window.Telegram?.WebApp;
+if(tg) { tg.expand(); }
 
-let userIsPro = false;
-let map;
-let currentLang = localStorage.getItem("app_lang") || "ru";
+let map, depthLayer, userMarker, selectedPointMarker;
+let selectedCoords = { lat: 46.56, lng: 30.85, name: "Фонтанка / Одесса" };
 
-// ТЕKСТЫ И ПЕРЕВОДЫ (i18n)
-const translations = {
-    ru: {
-        loading: "Загрузка картографии...",
-        blocked_title: "🚫 Доступ ограничен",
-        blocked_desc: "Сервис недоступен в вашем регионе или на запрещенных территориях.",
-        forecast_title: "Прогнозы активности",
-        avg_bite: "Средний клев сегодня",
-        pro_lock: "🔒 Подробный почасовой прогноз доступен в PRO версии",
-        premium_desc: "Доступ к карте глубин, прогнозам на 14 дней и базе водоемов без ограничений.",
-        activate_pro: "Активировать PRO",
-        profile_sub: "Управление профилем",
-        lang_title: "Язык приложения / Мова",
-        locations_title: "Мои локации",
-        loc_points: "Точки",
-        loc_nets: "Перемёты",
-        loc_trolling: "Троллинг",
-        catch_title: "Мои уловы",
-        add_catch: "➕ Добавить улов",
-        nav_map: "Карта",
-        nav_forecast: "Прогнозы",
-        nav_premium: "Премиум",
-        nav_profile: "Мне",
-        sea_type: "Черное море / Лиман",
-        fresh_type: "Пресноводный ставок / Река",
-        catch_alert: "Для добавления улова выберите точку на карте!"
-    },
-    uk: {
-        loading: "Завантаження картографії...",
-        blocked_title: "🚫 Доступ обмежено",
-        blocked_desc: "Сервіс недоступний у вашому регіоні або на заборонених територіях.",
-        forecast_title: "Прогнози активности",
-        avg_bite: "Середній клювання сьогодні",
-        pro_lock: "🔒 Детальний погодинний прогноз доступний у PRO версії",
-        premium_desc: "Доступ до карти глибин, прогнозів на 14 днів та бази водойм без обмежень.",
-        activate_pro: "Активувати PRO",
-        profile_sub: "Управління профілем",
-        lang_title: "Мова застосунку / Language",
-        locations_title: "Мої локації",
-        loc_points: "Точки",
-        loc_nets: "Перемети",
-        loc_trolling: "Тролінг",
-        catch_title: "Мої улови",
-        add_catch: "➕ Додати улов",
-        nav_map: "Карта",
-        nav_forecast: "Прогнози",
-        nav_premium: "Преміум",
-        nav_profile: "Профіль",
-        sea_type: "Чорне море / Лиман",
-        fresh_type: "Прісноводний ставок / Річка",
-        catch_alert: "Для додавання улову виберіть точку на карті!"
-    },
-    en: {
-        loading: "Loading maps...",
-        blocked_title: "🚫 Access Restricted",
-        blocked_desc: "Service is unavailable in your region or restricted territories.",
-        forecast_title: "Activity Forecasts",
-        avg_bite: "Average bite rate today",
-        pro_lock: "🔒 Detailed hourly forecast available in PRO version",
-        premium_desc: "Access to depth maps, 14-day forecasts and unlimited waterbody database.",
-        activate_pro: "Activate PRO",
-        profile_sub: "Profile Management",
-        lang_title: "App Language",
-        locations_title: "My Locations",
-        loc_points: "Spots",
-        loc_nets: "Nets",
-        loc_trolling: "Trolling",
-        catch_title: "My Catches",
-        add_catch: "➕ Add Catch",
-        nav_map: "Map",
-        nav_forecast: "Forecast",
-        nav_premium: "Premium",
-        nav_profile: "Me",
-        sea_type: "Black Sea / Estuary",
-        fresh_type: "Freshwater Pond / River",
-        catch_alert: "Select a spot on the map to add a catch!"
-    }
-};
-
-// Инициализация
-document.addEventListener("DOMContentLoaded", async () => {
-    applyLanguage(currentLang);
-    await checkGeoLocation();
+document.addEventListener("DOMContentLoaded", () => {
     initMap();
-    initNavigation();
-
-    document.getElementById("loader-screen").classList.add("hidden");
+    loadRealWeatherData(selectedCoords.lat, selectedCoords.lng);
 });
 
-// Переключение языка
-function changeLanguage(lang) {
-    currentLang = lang;
-    localStorage.setItem("app_lang", lang);
-    applyLanguage(lang);
-}
-
-function applyLanguage(lang) {
-    const dict = translations[lang] || translations.ru;
-    
-    document.querySelectorAll("[data-i18n]").forEach(el => {
-        const key = el.getAttribute("data-i18n");
-        if (dict[key]) {
-            el.innerText = dict[key];
-        }
-    });
-
-    // Подсветить активную кнопку языка
-    document.querySelectorAll(".lang-btn").forEach(btn => {
-        btn.classList.remove("active");
-        if (btn.getAttribute("onclick").includes(`'${lang}'`)) {
-            btn.classList.add("active");
-        }
-    });
-}
-
-// Проверка гео/IP на РФ
-async function checkGeoLocation() {
-    try {
-        const res = await fetch("https://ipapi.co/json/");
-        const data = await res.json();
-        
-        if (data.country_code === "RU") {
-            document.getElementById("block-screen").classList.remove("hidden");
-        }
-    } catch (e) {
-        console.log("Geo check skipped");
-    }
-}
-
-// Настройка карты
+// 1. ИНИЦИАЛИЗА КАРТЫ С ЭХОЛОТОМ И ВЫБОРОМ ТОЧКИ
 function initMap() {
-    map = L.map("map").setView([46.4825, 30.7233], 10);
+    map = L.map("map", { zoomControl: false }).setView([selectedCoords.lat, selectedCoords.lng], 12);
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        maxZoom: 19
+    // Базовая спутниковая карта
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 18
     }).addTo(map);
 
-    // Маска заблокированной территории
-    fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries/RUS.geo.json")
-        .then(res => res.json())
-        .then(data => {
-            L.geoJSON(data, {
-                style: {
-                    fillColor: "#4a4a4a",
-                    fillOpacity: 0.7,
-                    color: "#222",
-                    weight: 1
-                }
-            }).addTo(map);
-        });
+    // Рабочий слой глубин и морской батиметрии (OpenSeaMap Seamarks + Bathymetry)
+    depthLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        opacity: 0.9
+    }).addTo(map);
 
-    map.on("click", (e) => {
-        analyzeLocation(e.latlng.lat, e.latlng.lng);
+    // КЛИК ПО КАРТЕ: Выбор конкретной точки
+    map.on('click', function(e) {
+        const lat = e.latlng.lat.toFixed(4);
+        const lng = e.latlng.lng.toFixed(4);
+        
+        selectedCoords = { lat, lng, name: `${lat}°N, ${lng}°E` };
+
+        // Анимация перемещения
+        map.flyTo(e.latlng, map.getZoom(), { duration: 1.0 });
+
+        if (selectedPointMarker) map.removeLayer(selectedPointMarker);
+        
+        selectedPointMarker = L.marker([lat, lng]).addTo(map)
+            .bindPopup(`<b>🎯 Выбрана точка</b><br>Широта: ${lat}<br>Долгота: ${lng}<br><i>Загрузка данных...</i>`)
+            .openPopup();
+
+        // Обновляем панель локации во всех вкладках
+        document.querySelectorAll(".loc-display").forEach(el => el.innerText = selectedCoords.name);
+        
+        // Пересчитываем реальные показатели погоды и клева для точки
+        loadRealWeatherData(lat, lng);
     });
 }
 
-// Определение водоема и рыбы
-function analyzeLocation(lat, lng) {
-    const card = document.getElementById("water-info");
-    const nameEl = document.getElementById("water-name");
-    const typeEl = document.getElementById("water-type");
-    const fishEl = document.getElementById("fish-list");
-    const dict = translations[currentLang] || translations.ru;
+function locateUser() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const lat = pos.coords.latitude.toFixed(4);
+            const lng = pos.coords.longitude.toFixed(4);
+            
+            selectedCoords = { lat, lng, name: "Мое местоположение" };
+            map.flyTo([lat, lng], 14, { duration: 1.2 });
 
-    card.classList.remove("hidden");
+            if (userMarker) map.removeLayer(userMarker);
+            userMarker = L.circleMarker([lat, lng], {
+                radius: 8, fillColor: "#00d2ff", color: "#fff", weight: 2, fillOpacity: 1
+            }).addTo(map).bindPopup("<b>📍 Вы здесь</b>").openPopup();
 
-    let type = dict.sea_type;
-    let fishes = ["Бычок", "Камбала", "Кефаль", "Сарган", "Ставрида"];
+            document.querySelectorAll(".loc-display").forEach(el => el.innerText = selectedCoords.name);
+            loadRealWeatherData(lat, lng);
+        });
+    }
+}
 
-    if (lat > 46.5) {
-        type = dict.fresh_type;
-        fishes = ["Карп", "Карась", "Судак", "Щука", "Окунь", "Толстолобик"];
+// 2. ПОЛУЧЕНИЕ РЕАЛЬНЫХ ДАННЫХ ПОГОДЫ И КЛЕВА ПО КООРДИНАТАМ (Open-Meteo API)
+async function loadRealWeatherData(lat, lng) {
+    try {
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&hourly=surface_pressure,relativehumidity_2m`);
+        const data = await res.json();
+        
+        if (data && data.current_weather) {
+            const temp = Math.round(data.current_weather.temperature);
+            const wind = data.current_weather.windspeed;
+            const pressure = Math.round(data.hourly.surface_pressure[0] * 0.750062); // hPa в мм рт. ст.
+
+            document.getElementById("val-temp").innerText = `${temp > 0 ? '+' : ''}${temp}°C`;
+            document.getElementById("val-wind").innerText = `${wind} км/ч`;
+            document.getElementById("val-press").innerText = `${pressure} мм рт.ст.`;
+
+            // Расчет реального индекса клева на основе давления и ветра
+            let biteScore = 80;
+            if (pressure < 745 || pressure > 765) biteScore -= 20;
+            if (wind > 20) biteScore -= 25;
+            
+            document.getElementById("bite-val").innerText = `${Math.max(10, biteScore)}%`;
+        }
+    } catch (e) {
+        console.error("Ошибка получения метеоданных:", e);
+    }
+}
+
+// 3. ПОКУПКА ПОДПИСКИ С ОПЛАТОЙ ЧЕРЕЗ TELEGRAM STARS
+function buyProSubscription() {
+    if (!tg) {
+        alert("Запустите WebApp внутри Telegram!");
+        return;
     }
 
-    nameEl.innerText = `${lat.toFixed(3)}, ${lng.toFixed(3)}`;
-    typeEl.innerText = type;
-    fishEl.innerHTML = fishes.map(f => `<span class="tag">🐟 ${f}</span>`).join("");
+    //1. Отправляем событие бэкенду (Python / Node.js боту)
+    tg.sendData(JSON.stringify({
+        action: "create_invoice",
+        item: "pro_subscription",
+        stars: 500
+    }));
+
+    //2. Альтернативный вариант (если у вас готова прямая ссылка на оплату invoice)
+    // tg.openInvoice("https://t.me/$INVOICE_LINK", function(status) {
+    //     if (status === 'paid') tg.showAlert('Оплата прошла успешно!');
+    // });
 }
 
-// Навигация
-function initNavigation() {
-    const buttons = document.querySelectorAll(".nav-btn");
-    const tabs = document.querySelectorAll(".tab-content");
-
-    buttons.forEach(btn => {
-        btn.addEventListener("click", () => {
-            const targetTab = btn.getAttribute("data-tab");
-
-            buttons.forEach(b => b.classList.remove("active"));
-            tabs.forEach(t => t.classList.remove("active"));
-
-            btn.classList.add("active");
-            document.getElementById(targetTab).classList.add("active");
-
-            if (targetTab === "tab-map" && map) {
-                setTimeout(() => map.invalidateSize(), 100);
-            }
-        });
-    });
+function switchMainTab(tabId, el) {
+    document.querySelectorAll(".tab-view").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+    document.getElementById(tabId).classList.add("active");
+    el.classList.add("active");
+    if(tabId === 'tab-map' && map) setTimeout(() => map.invalidateSize(), 100);
 }
 
-function buyPro() {
-    tg.sendData(JSON.stringify({ action: "buy_pro" }));
-}
-
-function addCatch() {
-    const dict = translations[currentLang] || translations.ru;
-    tg.showAlert(dict.catch_alert);
+function switchSubForecast(sub, el) {
+    document.querySelectorAll(".sub-content").forEach(s => s.classList.add("hidden"));
+    document.querySelectorAll(".sub-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById("sub-" + sub).classList.remove("hidden");
+    el.classList.add("active");
 }
