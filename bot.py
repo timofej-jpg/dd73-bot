@@ -8,7 +8,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from database import init_db, get_or_register_user, activate_trial, extend_pro
 
 ADMIN_ID = 1213392194  # Твой Telegram ID
-WEBAPP_URL = "https://timofej-jpg.github.io/dd73-bot/webapp/"  # Стабильная ссылка
+WEBAPP_URL = "https://timofej-jpg.github.io/dd73-bot/webapp/index.html"  # Стабильная ссылка
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=BOT_TOKEN)
