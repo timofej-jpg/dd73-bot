@@ -1,31 +1,207 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>FishStats WebApp</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FishStats Pro</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg-color: #0b0f19;
+      --card-bg: rgba(22, 30, 46, 0.75);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --accent-color: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: var(--bg-color); color: var(--text-main); padding: 16px; font-size: 14px; min-height: 100vh; }
+
+    /* Lang Selector Overlay */
+    #langModal {
+      position: fixed; inset: 0; background: rgba(11, 15, 25, 0.95);
+      backdrop-filter: blur(12px); z-index: 9999; display: flex;
+      flex-direction: column; justify-content: center; align-items: center; padding: 24px;
+    }
+    .lang-title { font-size: 20px; font-weight: 700; margin-bottom: 20px; text-align: center; }
+    .lang-btn {
+      width: 100%; max-width: 280px; padding: 14px; margin-bottom: 12px;
+      background: var(--card-bg); border: 1px solid var(--border-color);
+      border-radius: 14px; color: #fff; font-size: 16px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .lang-btn:active { transform: scale(0.97); border-color: var(--accent-color); }
+
+    /* UI Cards */
+    .card {
+      background: var(--card-bg); border: 1px solid var(--border-color);
+      backdrop-filter: blur(16px); border-radius: 20px; padding: 18px; margin-bottom: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35); transition: all 0.3s ease;
+    }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    h2 { font-size: 16px; font-weight: 700; color: var(--accent-color); letter-spacing: -0.3px; }
+    
+    .badge-pro {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 20px; color: #fff; text-transform: uppercase;
+    }
+
+    select, input {
+      width: 100%; padding: 14px; border-radius: 12px;
+      border: 1px solid var(--border-color); background: rgba(11, 15, 25, 0.6);
+      color: #fff; font-size: 14px; outline: none; margin-bottom: 12px; transition: 0.2s;
+    }
+    select:focus, input:focus { border-color: var(--accent-color); box-shadow: 0 0 12px var(--accent-glow); }
+
+    button.btn-action {
+      width: 100%; padding: 14px; border-radius: 12px; border: none;
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 4px 15px rgba(2, 132, 199, 0.3); transition: all 0.2s;
+    }
+    button.btn-action:active { transform: scale(0.98); }
+
+    #map { height: 200px; width: 100%; border-radius: 14px; margin-bottom: 12px; border: 1px solid var(--border-color); }
+
+    .result-box {
+      background: rgba(11, 15, 25, 0.8); border-left: 3px solid var(--accent-color);
+      padding: 12px; border-radius: 10px; font-size: 13px; line-height: 1.6; margin-top: 10px; color: #cbd5e1;
+    }
+    .lang-switcher-top { font-size: 12px; color: var(--text-sub); cursor: pointer; text-decoration: underline; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h2>🐟 FishStats</h2>
-        <p>Выбери тип рыбы и введи вес:</p>
-        
-        <label for="fish">Вид рыбы:</label>
-        <select id="fish">
-            <option value="Окунь">Окунь</option>
-            <option value="Судак">Судак</option>
-            <option value="Щука">Щука</option>
-            <option value="Карп">Карп</option>
-            <option value="Карась">Карась</option>
-        </select>
 
-        <label for="weight">Вес (кг):</label>
-        <input type="number" id="weight" step="0.1" placeholder="Например: 1.5">
+  <!-- Modal selection Language -->
+  <div id="langModal">
+    <div class="lang-title">Choose Language / Оберіть мову</div>
+    <button class="lang-btn" onclick="setLanguage('en')">🇬🇧 English</button>
+    <button class="lang-btn" onclick="setLanguage('ua')">🇺🇦 Українська</button>
+    <button class="lang-btn" onclick="setLanguage('ru')">🇷🇺 Русский</button>
+  </div>
 
-        <button id="sendBtn">Сохранить улов</button>
+  <!-- Main Interface -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+    <span style="font-weight: 800; font-size: 18px; color: #fff;">FishStats <span style="color:var(--accent-color)">PRO</span></span>
+    <span class="lang-switcher-top" onclick="document.getElementById('langModal').style.display='flex'">🌐 Lang</span>
+  </div>
+
+  <!-- Map Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2 id="t-map-title">📍 Карта и GPS</h2>
+      <span class="badge-pro">PRO</span>
     </div>
-    <script src="app.js"></script>
+    <div id="map"></div>
+    <button class="btn-action" onclick="locateUser()" id="t-btn-gps">🎯 Определить геолокацию</button>
+  </div>
+
+  <!-- Recommendations -->
+  <div class="card">
+    <div class="card-header">
+      <h2 id="t-rec-title">🔮 Прогноз клёва</h2>
+    </div>
+    <select id="fishSelect">
+      <option value="perch">Окунь / Perch / Окунь</option>
+      <option value="zander">Судак / Zander / Судак</option>
+      <option value="pike">Щука / Pike / Щука</option>
+      <option value="carp">Карп / Carp / Короп</option>
+      <option value="crucian">Карась / Crucian / Карась</option>
+      <option value="catfish">Сом / Catfish / Сом</option>
+      <option value="bream">Лещ / Bream / Лящ</option>
+    </select>
+    <button class="btn-action" onclick="getRecommendation()" id="t-btn-rec">🎣 Получить рекомендацию</button>
+    <div id="recommendResult" class="result-box" style="display:none;"></div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    const translations = {
+      ru: {
+        mapTitle: "📍 Карта и GPS",
+        btnGps: "🎯 Определить геолокацию",
+        recTitle: "🔮 Прогноз клёва и наживки",
+        btnRec: "🎣 Получить рекомендацию",
+        gpsError: "Не удалось получить доступ к GPS",
+        myPos: "Вы здесь 🎣"
+      },
+      ua: {
+        mapTitle: "📍 Карта та GPS",
+        btnGps: "🎯 Визначити геолокацію",
+        recTitle: "🔮 Прогноз клювання та надивок",
+        btnRec: "🎣 Отримати рекомендацію",
+        gpsError: "Не вдалося отримати доступ до GPS",
+        myPos: "Ви тут 🎣"
+      },
+      en: {
+        mapTitle: "📍 Map & GPS",
+        btnGps: "🎯 Locate Me",
+        recTitle: "🔮 Bite Forecast & Bait",
+        btnRec: "🎣 Get Recommendation",
+        gpsError: "Unable to access GPS location",
+        myPos: "You are here 🎣"
+      }
+    };
+
+    let currentLang = localStorage.getItem('app_lang') || null;
+    let map, userMarker;
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('app_lang', lang);
+      document.getElementById('langModal').style.display = 'none';
+      applyTranslations();
+    }
+
+    function applyTranslations() {
+      if (!currentLang) return;
+      const t = translations[currentLang];
+      document.getElementById('t-map-title').innerText = t.mapTitle;
+      document.getElementById('t-btn-gps').innerText = t.btnGps;
+      document.getElementById('t-rec-title').innerText = t.recTitle;
+      document.getElementById('t-btn-rec').innerText = t.btnRec;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!currentLang) {
+        document.getElementById('langModal').style.display = 'flex';
+      } else {
+        document.getElementById('langModal').style.display = 'none';
+        applyTranslations();
+      }
+
+      map = L.map('map').setView([46.4825, 30.7233], 10);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    });
+
+    function locateUser() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          map.setView([lat, lng], 14);
+          if (userMarker) map.removeLayer(userMarker);
+          userMarker = L.marker([lat, lng]).addTo(map).bindPopup(translations[currentLang || 'ru'].myPos).openPopup();
+        }, () => alert(translations[currentLang || 'ru'].gpsError));
+      }
+    }
+
+    function getRecommendation() {
+      const res = document.getElementById("recommendResult");
+      res.style.display = "block";
+      res.innerHTML = `
+        <b>Barometer:</b> 754 mmHg (Optimal)<br>
+        <b>Recommended Bait:</b> Silicone 3" / Live Bait<br>
+        <b>Best Time:</b> 06:00 - 09:30
+      `;
+    }
+  </script>
 </body>
 </html>
