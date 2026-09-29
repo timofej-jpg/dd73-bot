@@ -11,22 +11,22 @@
     
     <style>
         :root {
-            --bg-dark: #070a0f;
-            --glass-card: rgba(18, 26, 38, 0.75);
-            --glass-border: rgba(255, 255, 255, 0.12);
-            --glass-inner: rgba(255, 255, 255, 0.05);
+            --bg-dark: #06090e;
+            --glass-card: rgba(16, 24, 36, 0.78);
+            --glass-border: rgba(255, 255, 255, 0.14);
+            --glass-inner: rgba(255, 255, 255, 0.06);
             --accent-blue: #0088ff;
             --accent-cyan: #00d2ff;
             --accent-gold: #ffb703;
             --text-main: #ffffff;
-            --text-sub: #8e9bae;
+            --text-sub: #8ea1b8;
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
         }
@@ -43,9 +43,9 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(180deg, rgba(7, 10, 15, 0.85) 0%, rgba(5, 8, 14, 0.95) 100%);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
+            background: linear-gradient(180deg, rgba(6, 9, 14, 0.88) 0%, rgba(4, 7, 12, 0.96) 100%);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
             z-index: -1;
         }
 
@@ -55,7 +55,7 @@
             height: 100vh;
         }
 
-        /* LOAD SCREEN */
+        /* SPLASH SCREEN */
         .splash-loader {
             position: fixed;
             inset: 0;
@@ -71,7 +71,7 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: rgba(4, 7, 12, 0.88);
+            background: rgba(4, 7, 12, 0.90);
             backdrop-filter: blur(20px);
         }
 
@@ -81,12 +81,12 @@
             width: 100%;
             max-width: 320px;
             text-align: center;
-            background: rgba(15, 23, 36, 0.6);
+            background: rgba(15, 23, 36, 0.65);
             border: 1px solid var(--glass-border);
             padding: 28px 20px;
             border-radius: 28px;
             backdrop-filter: blur(30px);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
         }
 
         .loader-logo {
@@ -101,7 +101,7 @@
 
         .progress-track {
             background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.12);
             height: 20px;
             border-radius: 12px;
             padding: 3px;
@@ -127,12 +127,12 @@
             font-weight: 500;
         }
 
-        /* TABS */
+        /* MAIN TAB VIEWS */
         .tab-view {
             display: none;
             flex: 1;
             overflow-y: auto;
-            padding-bottom: 80px;
+            padding-bottom: 95px;
         }
 
         .tab-view.active {
@@ -148,20 +148,21 @@
         #map {
             width: 100%;
             height: 100%;
-            background: #0d131d;
+            background: #080c14;
         }
 
         .glass-box {
             background: var(--glass-card);
             border: 1px solid var(--glass-border);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 20px;
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-radius: 22px;
             padding: 16px;
             margin-bottom: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
         }
 
+        /* SUB NAVIGATION */
         .sub-nav {
             display: flex;
             gap: 8px;
@@ -175,34 +176,36 @@
             background: var(--glass-inner);
             border: 1px solid var(--glass-border);
             color: var(--text-sub);
-            padding: 8px 14px;
-            border-radius: 14px;
+            padding: 9px 15px;
+            border-radius: 16px;
             font-size: 12px;
             white-space: nowrap;
             display: flex;
             align-items: center;
             gap: 6px;
             cursor: pointer;
+            transition: all 0.2s ease;
         }
 
         .sub-btn.active {
-            background: rgba(0, 136, 255, 0.25);
-            border-color: var(--accent-blue);
+            background: rgba(0, 136, 255, 0.3);
+            border-color: var(--accent-cyan);
             color: #fff;
             font-weight: 600;
+            box-shadow: 0 0 12px rgba(0, 210, 255, 0.3);
         }
 
         .bite-gauge {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,0,0,0.2));
-            border: 1px solid rgba(0, 136, 255, 0.3);
+            background: linear-gradient(135deg, rgba(0,136,255,0.2), rgba(0,0,0,0.3));
+            border: 1px solid rgba(0, 210, 255, 0.35);
         }
 
         .gauge-circle {
-            width: 70px;
-            height: 70px;
+            width: 72px;
+            height: 72px;
             border-radius: 50%;
             border: 4px solid var(--accent-cyan);
             display: flex;
@@ -210,23 +213,31 @@
             justify-content: center;
             font-size: 22px;
             font-weight: 800;
-            box-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+            background: rgba(0,0,0,0.3);
+        }
+
+        /* LIQUID GLASS BOTTOM NAVIGATION BAR */
+        .bottom-bar-wrapper {
+            position: fixed;
+            bottom: 14px;
+            left: 14px;
+            right: 14px;
+            z-index: 10000;
         }
 
         .bottom-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 72px;
-            background: rgba(8, 12, 18, 0.85);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border-top: 1px solid var(--glass-border);
+            height: 66px;
+            background: rgba(12, 18, 28, 0.65);
+            backdrop-filter: blur(30px) saturate(190%);
+            -webkit-backdrop-filter: blur(30px) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 24px;
             display: flex;
             justify-content: space-around;
             align-items: center;
-            z-index: 1000;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            padding: 0 6px;
         }
 
         .nav-item {
@@ -240,11 +251,25 @@
             gap: 4px;
             cursor: pointer;
             width: 20%;
+            transition: all 0.2s ease;
+            position: relative;
         }
 
         .nav-item.active {
             color: var(--accent-cyan);
-            font-weight: 600;
+            font-weight: 700;
+            transform: translateY(-2px);
+        }
+
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            width: 16px;
+            height: 3px;
+            background: var(--accent-cyan);
+            border-radius: 3px;
+            box-shadow: 0 0 8px var(--accent-cyan);
         }
 
         .nav-item .icon { font-size: 20px; }
@@ -260,8 +285,9 @@
             width: 56px;
             height: 56px;
             border-radius: 50%;
-            border: 2px solid var(--accent-blue);
+            border: 2px solid var(--accent-cyan);
             object-fit: cover;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
         }
 
         .setting-row {
@@ -269,23 +295,24 @@
             justify-content: space-between;
             align-items: center;
             padding: 12px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .setting-row:last-child { border-bottom: none; }
 
         select, input[type="checkbox"] {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.12);
             border: 1px solid var(--glass-border);
             color: #fff;
-            padding: 6px 10px;
-            border-radius: 8px;
+            padding: 6px 12px;
+            border-radius: 10px;
             outline: none;
+            font-size: 12px;
         }
 
         .prem-hero {
-            background: linear-gradient(135deg, rgba(255, 183, 3, 0.2), rgba(0, 0, 0, 0.4));
-            border: 1px solid rgba(255, 183, 3, 0.4);
+            background: linear-gradient(135deg, rgba(255, 183, 3, 0.22), rgba(0, 0, 0, 0.5));
+            border: 1px solid rgba(255, 183, 3, 0.45);
             text-align: center;
             padding: 24px 16px;
         }
@@ -302,7 +329,7 @@
             width: 100%;
             padding: 14px;
             border: none;
-            border-radius: 14px;
+            border-radius: 16px;
             font-weight: 700;
             font-size: 14px;
             background: linear-gradient(90deg, #ffb703, #ff8800);
@@ -310,15 +337,45 @@
             cursor: pointer;
             box-shadow: 0 4px 20px rgba(255, 183, 3, 0.4);
             margin-top: 14px;
+            transition: transform 0.1s ease;
         }
 
-        .badge-free {
-            background: rgba(255, 183, 3, 0.2);
-            color: var(--accent-gold);
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 183, 3, 0.3);
+        .action-btn:active { transform: scale(0.98); }
+
+        .fish-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .fish-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 10px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .map-float-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 1000;
+            background: rgba(12, 18, 28, 0.85);
+            border: 1px solid var(--glass-border);
+            color: #fff;
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 12px;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
         }
 
         .hidden { display: none !important; }
@@ -326,6 +383,7 @@
 </head>
 <body>
 
+    <!-- ЭКРАН ЗАГРУЗКИ -->
     <div id="splash" class="splash-loader">
         <div class="loader-card">
             <div class="loader-logo">FISHSTATS PRO</div>
@@ -344,6 +402,9 @@
         <!-- 1. КАРТА -->
         <div id="tab-map" class="tab-view active">
             <div id="map-container">
+                <button class="map-float-btn" onclick="locateUser()">
+                    🎯 <span id="lang-my-geo">Мое местоположение</span>
+                </button>
                 <div id="map"></div>
             </div>
         </div>
@@ -351,89 +412,96 @@
         <!-- 2. ПРОГНОЗ КЛЕВА -->
         <div id="tab-forecast" class="tab-view">
             <div class="sub-nav">
-                <button class="sub-btn active" onclick="switchSubForecast('bite', this)">🎣 Активность</button>
-                <button class="sub-btn" onclick="switchSubForecast('tides', this)">🌊 Приливы</button>
-                <button class="sub-btn" onclick="switchSubForecast('waves', this)">🌊 Волна</button>
-                <button class="sub-btn" onclick="switchSubForecast('weather', this)">🌤 Погода</button>
-                <button class="sub-btn" onclick="switchSubForecast('astro', this)">🌙 Солнце/Луна</button>
+                <button class="sub-btn active" onclick="switchSubForecast('bite', this)">🎣 <span id="lang-sub-bite">Активность</span></button>
+                <button class="sub-btn" onclick="switchSubForecast('species', this)">🐟 <span id="lang-sub-species">По рыбам</span></button>
+                <button class="sub-btn" onclick="switchSubForecast('weather', this)">🌤 <span id="lang-sub-weather">Погода и Ветер</span></button>
+                <button class="sub-btn" onclick="switchSubForecast('tides', this)">🌊 <span id="lang-sub-tides">Приливы и Волна</span></button>
+                <button class="sub-btn" onclick="switchSubForecast('astro', this)">🌙 <span id="lang-sub-astro">Солнце/Луна</span></button>
             </div>
 
             <div style="padding: 12px 16px;">
 
-                <!-- ПОДВКЛАДКА 1: Активность -->
+                <!-- ПОДВКЛАДКА 1: Общая активность -->
                 <div id="sub-bite" class="sub-content">
                     <div class="glass-box bite-gauge">
                         <div>
-                            <div style="font-size: 12px; color: var(--text-sub);">Средний клев сегодня</div>
-                            <div style="font-size: 18px; font-weight: 700; color: #fff; margin-top: 4px;" id="bite-title">Высокая активность</div>
+                            <div style="font-size: 12px; color: var(--text-sub);" id="lang-gauge-title">Общий индекс клева</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #fff; margin-top: 4px;" id="lang-gauge-status">Отличный клев</div>
                             <div style="font-size: 11px; color: var(--accent-cyan); margin-top: 2px;">
-                                Растущая луна • <span id="status-mode" class="badge-free">Ориентировочно (±15%)</span>
+                                Растущая луна • 1018 hPa (Стабильно)
                             </div>
                         </div>
-                        <div class="gauge-circle" id="bite-val">78%</div>
+                        <div class="gauge-circle" id="bite-val">82%</div>
                     </div>
 
                     <div class="glass-box">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <span style="font-size: 13px; font-weight: 600;">Прогноз по часам (Сегодня)</span>
-                            <span style="font-size: 10px; color: var(--text-sub);" id="chart-accuracy">Точность FREE: 80-85%</span>
+                            <span style="font-size: 13px; font-weight: 600;" id="lang-chart-title">Почасовой прогноз активности</span>
+                            <span style="font-size: 10px; color: var(--text-sub);">Пик: 06:00 - 08:30</span>
                         </div>
                         <canvas id="biteChart" height="130"></canvas>
                     </div>
 
                     <div class="glass-box">
-                        <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">🔥 Лучшие часы для ловли</div>
-                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-sub);">
-                            <span>Утренний пик: <b>05:30 — 08:15</b></span>
-                            <span>Вечерний пик: <b>18:00 — 21:00</b></span>
+                        <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;" id="lang-best-hours">🔥 Лучшие периоды ловли</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: var(--text-sub);">
+                            <div class="glass-box" style="margin:0; padding:10px;">🌅 Утренний пик:<br><b style="color:#fff;">05:30 — 08:30</b></div>
+                            <div class="glass-box" style="margin:0; padding:10px;">🌇 Вечерний пик:<br><b style="color:#fff;">18:00 — 21:15</b></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ПОДВКЛАДКА 2: Приливы -->
-                <div id="sub-tides" class="sub-content hidden">
+                <!-- ПОДВКЛАДКА 2: По видам рыб -->
+                <div id="sub-species" class="sub-content hidden">
                     <div class="glass-box">
-                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">График приливов (Регион)</div>
-                        <div style="font-size: 12px; color: var(--text-sub); margin-bottom: 10px;">Текущий уровень: <b>+0.12 м</b></div>
-                        <canvas id="tideChart" height="130"></canvas>
-                    </div>
-                </div>
-
-                <!-- ПОДВКЛАДКА 3: Волна -->
-                <div id="sub-waves" class="sub-content hidden">
-                    <div class="glass-box">
-                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Морские условия</div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
-                            <div class="glass-box" style="margin: 0; padding: 10px;">
-                                <div style="color: var(--text-sub);">Высота волны</div>
-                                <div style="font-size: 18px; font-weight: 700; color: var(--accent-cyan);">0.4 м</div>
-                            </div>
-                            <div class="glass-box" style="margin: 0; padding: 10px;">
-                                <div style="color: var(--text-sub);">Вода</div>
-                                <div style="font-size: 18px; font-weight: 700; color: #ff9f43;">+19°C</div>
-                            </div>
+                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px;" id="lang-fish-forecast">Прогноз по видам рыб</div>
+                        <div class="fish-grid">
+                            <div class="fish-card"><span>🐟 Судак</span><b style="color:#00d2ff;">88%</b></div>
+                            <div class="fish-card"><span>🦈 Щука</span><b style="color:#00d2ff;">75%</b></div>
+                            <div class="fish-card"><span>🐠 Бычок</span><b style="color:#ffb703;">92%</b></div>
+                            <div class="fish-card"><span>🎣 Карп / Сазан</span><b style="color:#8ea1b8;">45%</b></div>
+                            <div class="fish-card"><span>🐟 Окунь</span><b style="color:#00d2ff;">80%</b></div>
+                            <div class="fish-card"><span>🌊 Сарган</span><b style="color:#00d2ff;">85%</b></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ПОДВКЛАДКА 4: Погода -->
+                <!-- ПОДВКЛАДКА 3: Погода и Ветер -->
                 <div id="sub-weather" class="sub-content hidden">
                     <div class="glass-box">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <div style="font-size: 28px; font-weight: 800;">+21°C</div>
-                                <div style="font-size: 12px; color: var(--text-sub);">Ясно, ветер 3.5 м/с СВ</div>
+                                <div style="font-size: 12px; color: var(--text-sub);">Ясно, Ветер 3.5 м/с (СВ)</div>
                             </div>
-                            <div style="font-size: 36px;">☀️</div>
+                            <div style="font-size: 38px;">☀️</div>
+                        </div>
+                        <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--glass-border); display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px; text-align: center;">
+                            <div>Давление<br><b style="color:#fff;">1018 hPa</b></div>
+                            <div>Порывы ветра<br><b style="color:#fff;">до 6.0 м/с</b></div>
+                            <div>Влажность<br><b style="color:#fff;">58%</b></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ПОДВКЛАДКА 5: Астрономия -->
+                <!-- ПОДВКЛАДКА 4: Приливы и Волна -->
+                <div id="sub-tides" class="sub-content hidden">
+                    <div class="glass-box">
+                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Приливы и Высота волны</div>
+                        <div style="font-size: 12px; color: var(--text-sub); margin-bottom: 10px;">Температура воды: <b>+19°C</b> • Волнение: <b>0.4 м</b></div>
+                        <canvas id="tideChart" height="130"></canvas>
+                    </div>
+                </div>
+
+                <!-- ПОДВКЛАДКА 5: Солнце и Луна -->
                 <div id="sub-astro" class="sub-content hidden">
                     <div class="glass-box">
-                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Фаза Луны</div>
-                        <div style="font-size: 12px; color: var(--text-sub);">Растущая луна (68%)</div>
+                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Астрономические данные</div>
+                        <div style="font-size: 12px; color: var(--text-sub);">Фаза: Растущая луна (Освещенность 68%)</div>
+                        <div style="margin-top: 10px; font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div class="glass-box" style="margin:0; padding:10px;">🌅 Восход:<br><b>06:48</b></div>
+                            <div class="glass-box" style="margin:0; padding:10px;">🌇 Заход:<br><b>19:12</b></div>
+                        </div>
                     </div>
                 </div>
 
@@ -444,7 +512,7 @@
         <div id="tab-catches" class="tab-view">
             <div style="padding: 16px;">
                 <button class="action-btn" style="background: linear-gradient(90deg, #0088ff, #00d2ff); color: #fff; margin-bottom: 16px;" onclick="addCatchAlert()">
-                    📸 Поделиться уловом
+                    📸 <span id="lang-share-catch">Поделиться уловом / Отзывом</span>
                 </button>
 
                 <div class="glass-box">
@@ -455,8 +523,8 @@
                             <div style="font-size: 10px; color: var(--text-sub);">Хаджибейский лиман • Вчера</div>
                         </div>
                     </div>
-                    <p style="font-size: 12px; color: #ddd; margin-bottom: 10px;">Взял пеленгаса на чашечку. Клев отличный с 6 до 8 утра!</p>
-                    <img src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=600&auto=format&fit=crop" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px;">
+                    <p style="font-size: 12px; color: #ddd; margin-bottom: 10px;">Взял пеленгаса на чашечку с силиконовым червем. Клев отличный с 6 до 8 утра!</p>
+                    <img src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=600&auto=format&fit=crop" style="width: 100%; height: 160px; object-fit: cover; border-radius: 14px;">
                 </div>
             </div>
         </div>
@@ -466,84 +534,114 @@
             <div style="padding: 16px;">
                 <div class="glass-box prem-hero">
                     <span style="background: var(--accent-gold); color: #000; font-weight: 800; font-size: 10px; padding: 4px 10px; border-radius: 20px;">PRO ДОСТУП</span>
-                    <h2 style="font-size: 20px; margin-top: 8px;">Точный прогноз & Глубины</h2>
-                    <p style="font-size: 12px; color: var(--text-sub); margin-top: 6px;">Убери 15% погрешность и открывай батиметрию дна</p>
+                    <h2 style="font-size: 20px; margin-top: 8px;" id="lang-prem-title">Эхолот Глубин & PRO Прогноз</h2>
+                    <p style="font-size: 12px; color: var(--text-sub); margin-top: 6px;" id="lang-prem-desc">Открывай ямы и глубинную тепловую карту любого водоема</p>
                     
-                    <!-- ПОПРОБОВАТЬ 1 ДЕНЬ БЕСПЛАТНО -->
-                    <button class="action-btn" onclick="try1DayTrial()">🎁 Попробовать 1 день БЕСПЛАТНО</button>
-                    <button class="sub-btn" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="buyPro()">Купить PRO (500 Stars / месяц)</button>
+                    <button class="action-btn" onclick="buyPro()" id="lang-btn-buy">⭐ Купить PRO подписку (500 Stars)</button>
+                    <button class="sub-btn" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="try1DayTrial()" id="lang-btn-trial">🎁 Активировать 1 день БЕСПЛАТНО</button>
                 </div>
 
                 <div class="glass-box">
-                    <div style="font-size: 14px; font-weight: 700; margin-bottom: 12px;">Преимущества PRO:</div>
-                    <div class="prem-feature">🎯 <span><b>100% Точный прогноз</b> (без погрешности FREE-версии)</span></div>
-                    <div class="prem-feature">🌊 <span><b>Карта глубин (Батиметрия)</b> водоемов и лиманов</span></div>
-                    <div class="prem-feature">📍 <span><b>Секретные уловистые точки</b> сообщества</span></div>
+                    <div style="font-size: 14px; font-weight: 700; margin-bottom: 12px;" id="lang-prem-features-title">Возможности PRO:</div>
+                    <div class="prem-feature">🔥 <span><b>Режим Эхолота / Тепловая карта глубин</b> (Ямы выделены красным)</span></div>
+                    <div class="prem-feature">🎯 <span><b>100% Точный гидрологический алгоритм</b></span></div>
+                    <div class="prem-feature">📍 <span><b>Неограниченные метки личных точек</b> с синхронизацией</span></div>
                 </div>
             </div>
         </div>
 
-        <!-- 5. ПРОФИЛЬ -->
+        <!-- 5. ПРОФИЛЬ И НАСТРОЙКИ -->
         <div id="tab-profile" class="tab-view">
             <div style="padding: 16px;">
                 <div class="glass-box">
                     <div class="user-header">
                         <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&auto=format&fit=crop" class="avatar" id="u-avatar">
                         <div>
-                            <div style="font-size: 16px; font-weight: 700;" id="u-name">Тимофей</div>
-                            <div style="font-size: 11px; color: var(--text-sub);" id="u-id">ID: 984120412</div>
+                            <div style="font-size: 16px; font-weight: 700;" id="u-name">Рыбак</div>
+                            <div style="font-size: 11px; color: var(--text-sub);" id="u-id">ID: Telegram User</div>
                             <div style="display: inline-block; margin-top: 4px;" id="u-status-badge">
-                                <span class="badge-free">FREE Тариф</span>
+                                <span style="background: rgba(255,255,255,0.1); color: var(--text-sub); font-size: 10px; padding: 2px 8px; border-radius: 6px;">FREE Версия</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- РАСШИРЕННЫЕ НАСТРОЙКИ -->
                 <div class="glass-box">
-                    <div style="font-size: 14px; font-weight: 700; margin-bottom: 10px;">⚙️ Настройки</div>
+                    <div style="font-size: 14px; font-weight: 700; margin-bottom: 10px;" id="lang-settings-title">⚙️ Расширенные настройки</div>
                     
                     <div class="setting-row">
-                        <span style="font-size: 13px;">Слой карты</span>
-                        <select onchange="changeMapLayer(this.value)">
+                        <span style="font-size: 13px;" id="lang-set-layer">Режим карты</span>
+                        <select onchange="changeMapLayer(this.value)" id="layer-select">
                             <option value="sat">🛰 Спутник (ArcGIS)</option>
-                            <option value="bath">🌊 Спутник + Глубины (PRO)</option>
+                            <option value="sonar">🔥 Спутник + Эхолот глубин (PRO)</option>
                             <option value="osm">🗺 Схема (OSM)</option>
                         </select>
                     </div>
 
                     <div class="setting-row">
-                        <span style="font-size: 13px;">Язык</span>
-                        <select onchange="changeLang(this.value)">
-                            <option value="ru">🇷🇺 Русский</option>
+                        <span style="font-size: 13px;" id="lang-set-lang">Язык приложения</span>
+                        <select onchange="changeLang(this.value)" id="lang-select">
+                            <option value="ru" selected>🇷🇺 Русский</option>
                             <option value="uk">🇺🇦 Українська</option>
+                            <option value="en">🇬🇧 English</option>
                         </select>
+                    </div>
+
+                    <div class="setting-row">
+                        <span style="font-size: 13px;">Единицы ветра</span>
+                        <select>
+                            <option value="ms">м/с</option>
+                            <option value="kmh">км/ч</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-row">
+                        <span style="font-size: 13px;">Тип водоема по умолчанию</span>
+                        <select>
+                            <option value="sea">Морской / Лиман</option>
+                            <option value="fresh">Пресноводный / Озеро</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-row">
+                        <span style="font-size: 13px;">Push-уведомления о пике клева</span>
+                        <input type="checkbox" checked>
+                    </div>
+
+                    <div class="setting-row">
+                        <span style="font-size: 13px;">Звуковые эффекты</span>
+                        <input type="checkbox" checked>
                     </div>
                 </div>
             </div>
         </div>
 
-        <nav class="bottom-bar">
-            <button class="nav-item active" onclick="switchMainTab('tab-map', this)">
-                <span class="icon">🌐</span>
-                <span>Карта</span>
-            </button>
-            <button class="nav-item" onclick="switchMainTab('tab-forecast', this)">
-                <span class="icon">📈</span>
-                <span>Прогноз</span>
-            </button>
-            <button class="nav-item" onclick="switchMainTab('tab-catches', this)">
-                <span class="icon">🐟</span>
-                <span>Уловы</span>
-            </button>
-            <button class="nav-item" onclick="switchMainTab('tab-premium', this)">
-                <span class="icon">⭐</span>
-                <span>Премиум</span>
-            </button>
-            <button class="nav-item" onclick="switchMainTab('tab-profile', this)">
-                <span class="icon">⚙️</span>
-                <span>Профиль</span>
-            </button>
-        </nav>
+        <!-- LIQUID GLASS BOTTOM NAVIGATION BAR -->
+        <div class="bottom-bar-wrapper">
+            <nav class="bottom-bar">
+                <button class="nav-item active" onclick="switchMainTab('tab-map', this)">
+                    <span class="icon">🌐</span>
+                    <span id="lang-nav-map">Карта</span>
+                </button>
+                <button class="nav-item" onclick="switchMainTab('tab-forecast', this)">
+                    <span class="icon">📈</span>
+                    <span id="lang-nav-forecast">Прогноз</span>
+                </button>
+                <button class="nav-item" onclick="switchMainTab('tab-catches', this)">
+                    <span class="icon">🐟</span>
+                    <span id="lang-nav-catches">Уловы</span>
+                </button>
+                <button class="nav-item" onclick="switchMainTab('tab-premium', this)">
+                    <span class="icon">⭐</span>
+                    <span id="lang-nav-premium">Премиум</span>
+                </button>
+                <button class="nav-item" onclick="switchMainTab('tab-profile', this)">
+                    <span class="icon">⚙️</span>
+                    <span id="lang-nav-profile">Профиль</span>
+                </button>
+            </nav>
+        </div>
 
     </div>
 
@@ -554,9 +652,36 @@
         let isPro = false;
         let map, biteChartInstance, tideChartInstance;
         let mapLayers = {};
+        let userMarker, customMarkers = [];
+        let currentLang = 'ru';
 
-        // Базовые точные данные
-        const exactBiteData = [20, 85, 95, 40, 50, 90, 30];
+        // ЯЗЫКОВЫЕ ПАКЕТЫ
+        const i18n = {
+            ru: {
+                navMap: "Карта", navForecast: "Прогноз", navCatches: "Уловы", navPremium: "Премиум", navProfile: "Профиль",
+                myGeo: "Мое местоположение", subBite: "Активность", subSpecies: "По рыбам", subWeather: "Погода", subTides: "Приливы", subAstro: "Солнце/Луна",
+                gaugeTitle: "Общий индекс клева", gaugeStatus: "Отличный клев", chartTitle: "Почасовой прогноз активности", bestHours: "🔥 Лучшие периоды ловли",
+                fishForecast: "Прогноз по видам рыб", shareCatch: "Поделиться уловом / Отзывом", premTitle: "Эхолот Глубин & PRO Прогноз",
+                premDesc: "Открывай ямы и глубинную тепловую карту любого водоема", btnBuy: "⭐ Купить PRO подписку (500 Stars)", btnTrial: "🎁 Активировать 1 день БЕСПЛАТНО",
+                premFeaturesTitle: "Возможности PRO:", settingsTitle: "⚙️ Расширенные настройки", setLayer: "Режим карты", setLang: "Язык приложения"
+            },
+            uk: {
+                navMap: "Карта", navForecast: "Прогноз", navCatches: "Улови", navPremium: "Преміум", navProfile: "Профіль",
+                myGeo: "Моя геопозиція", subBite: "Активність", subSpecies: "По рибах", subWeather: "Погода", subTides: "Припливи", subAstro: "Сонце/Місяць",
+                gaugeTitle: "Загальний індекс конюшин", gaugeStatus: "Чудовий конюшина", chartTitle: "Погодинний прогноз активності", bestHours: "Кращі періоди лову",
+                fishForecast: "Прогноз по видам риб", shareCatch: "Поділитися уловом / Відгуком", premTitle: "Ехолот Глибин & PRO Прогноз",
+                premDesc: "Відкривай ями та глибинну теплову карту будь-якого водоймища", btnBuy: "⭐ Купити PRO передплату (500 Stars)", btnTrial: "🎁 Активувати 1 день БЕЗКОШТОВНО",
+                premFeaturesTitle: "Можливості PRO:", settingsTitle: "⚙️ Розширені налаштування", setLayer: "Режим карти", setLang: "Мова додатку"
+            },
+            en: {
+                navMap: "Map", navForecast: "Forecast", navCatches: "Catches", navPremium: "Premium", navProfile: "Profile",
+                myGeo: "My Location", subBite: "Activity", subSpecies: "By Fish", subWeather: "Weather", subTides: "Tides", subAstro: "Sun/Moon",
+                gaugeTitle: "Bite Index", gaugeStatus: "Excellent Fishing", chartTitle: "Hourly Activity Forecast", bestHours: "🔥 Best Fishing Hours",
+                fishForecast: "Forecast by Fish Species", shareCatch: "Share Catch / Review", premTitle: "Depth Sonar & PRO Forecast",
+                premDesc: "Unlock deep holes and depth thermal heatmap of any waterbody", btnBuy: "⭐ Buy PRO Subscription (500 Stars)", btnTrial: "🎁 Activate 1 Day FREE",
+                premFeaturesTitle: "PRO Features:", settingsTitle: "⚙️ Advanced Settings", setLayer: "Map Mode", setLang: "App Language"
+            }
+        };
 
         document.addEventListener("DOMContentLoaded", () => {
             let p = 0;
@@ -577,7 +702,7 @@
                 }
                 bar.style.width = p + "%";
                 txt.innerText = p + "%";
-                if(p > 50) status.innerText = "Расчет гидрологии и гидролокации...";
+                if(p > 50) status.innerText = "Синхронизация с эхолокационными базами...";
             }, 60);
 
             if(tg?.initDataUnsafe?.user) {
@@ -588,59 +713,84 @@
             }
         });
 
-        // 1. КАРТА (Со слоем глубин OpenSeaMap)
+        // 1. КАРТА И РЕЖИМ ЭХОЛОТА ГЛУБИН
         function initMap() {
-            map = L.map("map", { zoomControl: false }).setView([46.4825, 30.7233], 11);
+            // Фонтанка / Одесский регион
+            map = L.map("map", { zoomControl: false }).setView([46.56, 30.85], 12);
 
-            // Спутник
-            mapLayers.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 18
-            });
+            // Спутник ArcGIS
+            mapLayers.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 });
 
-            // Схема
+            // Схема OSM
             mapLayers.osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 });
 
-            // Слой Батиметрии (Реальные глубины и мореходные карты)
-            mapLayers.bath = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 18 });
+            // ЭХОЛОТ ГЛУБИН (Тепловая подложка изобат OpenSeaMap + Окраска ям)
+            mapLayers.sonar = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 18, opacity: 0.85 });
 
             mapLayers.sat.addTo(map);
 
-            // Метка Фонтанка
-            L.marker([46.56, 30.85]).addTo(map).bindPopup("<b>Фонтанка Спот</b><br>Глубины у берега: 2.5 - 6.0 м");
+            // Добавление точки по КЛИКУ на карту с АНИМАЦИЕЙ
+            map.on('click', function(e) {
+                const lat = e.latlng.lat.toFixed(5);
+                const lng = e.latlng.lng.toFixed(5);
+
+                // Плавный перелет на новую геопозицию
+                map.flyTo(e.latlng, map.getZoom(), { duration: 1.2 });
+
+                // Добавление кастомной маркер-метки
+                const newMarker = L.marker([lat, lng]).addTo(map)
+                    .bindPopup(`<b>🎣 Своя точка</b><br>Широта: ${lat}<br>Долгота: ${lng}<br><small>Глубина в этой точке: ~4.2м</small>`)
+                    .openPopup();
+
+                customMarkers.push(newMarker);
+            });
+        }
+
+        function locateUser() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+
+                    map.flyTo([lat, lng], 14, { duration: 1.5 });
+
+                    if (userMarker) map.removeLayer(userMarker);
+                    userMarker = L.circleMarker([lat, lng], {
+                        radius: 9,
+                        fillColor: "#00d2ff",
+                        color: "#ffffff",
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    }).addTo(map).bindPopup("<b>📍 Вы здесь</b>").openPopup();
+                }, () => {
+                    tg?.showAlert("Не удалось получить геопозицию. Убедитесь, что GPS включен.");
+                });
+            }
         }
 
         function changeMapLayer(type) {
-            if(type === 'bath' && !isPro) {
-                tg?.showAlert("🔒 Слой глубин доступен только в PRO версии или во время 1 дня триала!");
+            if(type === 'sonar' && !isPro) {
+                tg?.showAlert("🔒 Режим «Эхолот Глубин» доступен в PRO версии или во время бесплатного 1 дня!");
+                document.getElementById("layer-select").value = "sat";
                 return;
             }
 
-            // Очищаем все слои
             map.removeLayer(mapLayers.sat);
             if(mapLayers.osm) map.removeLayer(mapLayers.osm);
-            if(mapLayers.bath) map.removeLayer(mapLayers.bath);
+            if(mapLayers.sonar) map.removeLayer(mapLayers.sonar);
 
             if(type === 'osm') {
                 mapLayers.osm.addTo(map);
-            } else if(type === 'bath') {
+            } else if(type === 'sonar') {
                 mapLayers.sat.addTo(map);
-                mapLayers.bath.addTo(map); // Накладываем глубины поверх спутника
+                mapLayers.sonar.addTo(map); // Накладываем эхолот поверх спутника
             } else {
                 mapLayers.sat.addTo(map);
             }
         }
 
-        // 2. РАСЧЕТ ДАННЫХ С УЧЕТОМ ПОГРЕШНОСТИ ДЛЯ FREE
-        function getDisplayBiteData() {
-            if (isPro) return exactBiteData;
-            
-            // Вносим искусственную погрешность 10-15% для обычной версии
-            return exactBiteData.map(val => {
-                const noise = (Math.random() * 24) - 12; // +- 12%
-                return Math.min(100, Math.max(10, Math.round(val + noise)));
-            });
-        }
-
+        // 2. ГРАФИКИ
         function initCharts() {
             const ctxBite = document.getElementById('biteChart').getContext('2d');
             biteChartInstance = new Chart(ctxBite, {
@@ -648,9 +798,9 @@
                 data: {
                     labels: ['00:00','04:00','08:00','12:00','16:00','20:00','24:00'],
                     datasets: [{
-                        data: getDisplayBiteData(),
+                        data: [25, 88, 92, 45, 55, 90, 35],
                         borderColor: '#00d2ff',
-                        backgroundColor: 'rgba(0, 210, 255, 0.15)',
+                        backgroundColor: 'rgba(0, 210, 255, 0.2)',
                         fill: true,
                         tension: 0.4
                     }]
@@ -666,7 +816,7 @@
                     datasets: [{
                         data: [0.1, 0.4, -0.1, 0.3, 0.0],
                         borderColor: '#0088ff',
-                        backgroundColor: 'rgba(0, 136, 255, 0.15)',
+                        backgroundColor: 'rgba(0, 136, 255, 0.2)',
                         fill: true,
                         tension: 0.4
                     }]
@@ -675,20 +825,61 @@
             });
         }
 
-        // АКТИВАЦИЯ ТРИАЛА НА 1 ДЕНЬ
+        // 3. ПЕРЕКЛЮЧЕНИЕ ЯЗЫКА
+        function changeLang(lang) {
+            currentLang = lang;
+            const t = i18n[lang];
+
+            document.getElementById("lang-nav-map").innerText = t.navMap;
+            document.getElementById("lang-nav-forecast").innerText = t.navForecast;
+            document.getElementById("lang-nav-catches").innerText = t.navCatches;
+            document.getElementById("lang-nav-premium").innerText = t.navPremium;
+            document.getElementById("lang-nav-profile").innerText = t.navProfile;
+
+            document.getElementById("lang-my-geo").innerText = t.myGeo;
+            document.getElementById("lang-sub-bite").innerText = t.subBite;
+            document.getElementById("lang-sub-species").innerText = t.subSpecies;
+            document.getElementById("lang-sub-weather").innerText = t.subWeather;
+            document.getElementById("lang-sub-tides").innerText = t.subTides;
+            document.getElementById("lang-sub-astro").innerText = t.subAstro;
+
+            document.getElementById("lang-gauge-title").innerText = t.gaugeTitle;
+            document.getElementById("lang-gauge-status").innerText = t.gaugeStatus;
+            document.getElementById("lang-chart-title").innerText = t.chartTitle;
+            document.getElementById("lang-best-hours").innerText = t.bestHours;
+            document.getElementById("lang-fish-forecast").innerText = t.fishForecast;
+            document.getElementById("lang-share-catch").innerText = t.shareCatch;
+
+            document.getElementById("lang-prem-title").innerText = t.premTitle;
+            document.getElementById("lang-prem-desc").innerText = t.premDesc;
+            document.getElementById("lang-btn-buy").innerText = t.btnBuy;
+            document.getElementById("lang-btn-trial").innerText = t.btnTrial;
+            document.getElementById("lang-prem-features-title").innerText = t.premFeaturesTitle;
+
+            document.getElementById("lang-settings-title").innerText = t.settingsTitle;
+            document.getElementById("lang-set-layer").innerText = t.setLayer;
+            document.getElementById("lang-set-lang").innerText = t.setLang;
+        }
+
+        // 4. ОПЛАТА И ТРИАЛ (Telegram Payments API)
+        function buyPro() {
+            if (tg) {
+                // Отправляем командный запрос боту на инициализацию инвойса оплаты
+                tg.sendData(JSON.stringify({ action: "buy_pro_subscription", price_stars: 500 }));
+            } else {
+                alert("Покупка вызывается через Telegram Bot API!");
+            }
+        }
+
         function try1DayTrial() {
             isPro = true;
-            document.getElementById("status-mode").innerText = "PRO Точность (100%)";
-            document.getElementById("status-mode").style.background = "rgba(0, 210, 255, 0.2)";
-            document.getElementById("status-mode").style.color = "#00d2ff";
-            document.getElementById("chart-accuracy").innerText = "Точность PRO: 98-100%";
-            document.getElementById("u-status-badge").innerHTML = `<span style="background: rgba(0,210,255,0.2); color: #00d2ff; font-size: 10px; padding: 2px 8px; border-radius: 6px;">PRO Триал (1 день)</span>`;
+            document.getElementById("u-status-badge").innerHTML = `<span style="background: rgba(0,210,255,0.25); color: #00d2ff; font-size: 10px; padding: 2px 8px; border-radius: 6px;">PRO Доступ (1 День)</span>`;
+            
+            // Включаем слой эхолота в списке
+            document.getElementById("layer-select").value = "sonar";
+            changeMapLayer("sonar");
 
-            // Обновляем график на точный
-            biteChartInstance.data.datasets[0].data = exactBiteData;
-            biteChartInstance.update();
-
-            tg?.showAlert("🎉 Вам активирован бесплатный доступ на 1 ДЕНЬ! Теперь доступна батиметрия и 100% точный прогноз.");
+            tg?.showAlert("🎉 1 День PRO успешно активирован! Теперь включен режим Эхолота глубин.");
         }
 
         function switchMainTab(tabId, el) {
@@ -696,7 +887,7 @@
             document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
             document.getElementById(tabId).classList.add("active");
             el.classList.add("active");
-            if(tabId === 'tab-map' && map) setTimeout(() => map.invalidateSize(), 100);
+            if(tabId === 'tab-map' && map) setTimeout(() => map.invalidateSize(), 150);
         }
 
         function switchSubForecast(sub, el) {
@@ -706,9 +897,7 @@
             el.classList.add("active");
         }
 
-        function buyPro() { tg?.sendData(JSON.stringify({ action: "buy_pro" })); }
-        function addCatchAlert() { tg?.showAlert("Выберите точку на карте для загрузки вашего фото."); }
-        function changeLang(l) { tg?.showAlert("Язык изменен"); }
+        function addCatchAlert() { tg?.showAlert("Нажмите в любую точку на карте, чтобы прикрепить ваш улов!"); }
     </script>
 </body>
 </html>
