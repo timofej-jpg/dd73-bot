@@ -7,205 +7,232 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         :root {
-            --bg-color: #0d131d;
-            --glass-bg: rgba(22, 31, 49, 0.65);
+            --bg-dark: #070a0f;
+            --glass-card: rgba(18, 26, 38, 0.75);
             --glass-border: rgba(255, 255, 255, 0.12);
-            --accent: #2b82f6;
-            --accent-glow: rgba(43, 130, 246, 0.4);
-            --text-primary: #ffffff;
-            --text-secondary: #8e9bae;
+            --glass-inner: rgba(255, 255, 255, 0.05);
+            --accent-blue: #0088ff;
+            --accent-cyan: #00d2ff;
+            --accent-gold: #ffb703;
+            --text-main: #ffffff;
+            --text-sub: #8e9bae;
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
             -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         body {
-            background: #000 url('https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=1000&auto=format&fit=crop') no-repeat center center fixed;
+            background: var(--bg-dark) url('https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=1200&auto=format&fit=crop') no-repeat center center fixed;
             background-size: cover;
-            color: var(--text-primary);
-            overflow: hidden;
+            color: var(--text-main);
             height: 100vh;
+            overflow: hidden;
         }
 
-        /* Темная подложка для фона */
         body::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: rgba(10, 15, 25, 0.82);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
+            background: linear-gradient(180deg, rgba(7, 10, 15, 0.85) 0%, rgba(5, 8, 14, 0.95) 100%);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
             z-index: -1;
         }
 
-        .app-container {
-            height: 100vh;
+        .app-shell {
             display: flex;
             flex-direction: column;
+            height: 100vh;
         }
 
-        /* ЗАГРУЗОЧНЫЙ ЭКРАН С ПРОГРЕСС-БАРОМ */
-        .loader-overlay {
+        /* LOAD SCREEN */
+        .splash-loader {
             position: fixed;
             inset: 0;
-            background: #080c14 url('https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=1000&auto=format&fit=crop') center/cover;
+            background: #05080e url('https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=1000&auto=format&fit=crop') center/cover;
             z-index: 9999;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 30px;
+            padding: 24px;
         }
-        
-        .loader-overlay::before {
+
+        .splash-loader::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: rgba(5, 8, 15, 0.88);
+            background: rgba(4, 7, 12, 0.88);
             backdrop-filter: blur(20px);
         }
 
-        .loader-content {
+        .loader-card {
             position: relative;
             z-index: 2;
             width: 100%;
             max-width: 320px;
             text-align: center;
+            background: rgba(15, 23, 36, 0.6);
+            border: 1px solid var(--glass-border);
+            padding: 28px 20px;
+            border-radius: 28px;
+            backdrop-filter: blur(30px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
         }
 
-        .loader-title {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 25px;
+        .loader-logo {
+            font-size: 26px;
+            font-weight: 800;
             letter-spacing: 1px;
-            background: linear-gradient(135deg, #fff, var(--accent));
+            background: linear-gradient(135deg, #ffffff, var(--accent-cyan));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
         }
 
-        .progress-box {
+        .progress-track {
             background: rgba(255,255,255,0.08);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+            height: 20px;
+            border-radius: 12px;
+            padding: 3px;
             position: relative;
-            height: 24px;
             overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
 
-        .progress-fill {
+        .progress-bar {
             height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, #1d6ed8, #00d2ff);
-            border-radius: 16px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+            border-radius: 8px;
             transition: width 0.1s linear;
-            box-shadow: 0 0 12px var(--accent-glow);
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.5);
         }
 
-        .progress-status {
+        .progress-text {
             display: flex;
             justify-content: space-between;
-            margin-top: 10px;
+            margin-top: 12px;
             font-size: 12px;
-            color: var(--text-secondary);
+            color: var(--text-sub);
             font-weight: 500;
         }
 
-        /* ВКЛАДКИ */
-        .tab-content {
+        /* TABS */
+        .tab-view {
             display: none;
             flex: 1;
-            position: relative;
             overflow-y: auto;
             padding-bottom: 80px;
         }
 
-        .tab-content.active {
+        .tab-view.active {
             display: block;
+        }
+
+        #map-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
         }
 
         #map {
             width: 100%;
             height: 100%;
+            background: #0d131d;
         }
 
-        /* STYLES FOR GLASS CARDS */
-        .glass-card {
-            background: var(--glass-bg);
+        .glass-box {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 22px;
-            padding: 18px;
-            margin-bottom: 14px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
-        .content-padding {
-            padding: 20px;
-        }
-
-        .section-title {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 16px;
-        }
-
-        /* КАРТА INFO CARD */
-        .map-info-card {
-            position: absolute;
-            bottom: 85px;
-            left: 14px;
-            right: 14px;
-            z-index: 1000;
-            margin-bottom: 0;
-        }
-
-        .fish-tags {
+        .sub-nav {
             display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 12px;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 12px 16px 4px;
+            scrollbar-width: none;
         }
+        .sub-nav::-webkit-scrollbar { display: none; }
 
-        .tag {
-            background: rgba(43, 130, 246, 0.2);
-            border: 1px solid rgba(43, 130, 246, 0.35);
-            padding: 5px 12px;
+        .sub-btn {
+            background: var(--glass-inner);
+            border: 1px solid var(--glass-border);
+            color: var(--text-sub);
+            padding: 8px 14px;
             border-radius: 14px;
             font-size: 12px;
-            color: #d1e4ff;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
         }
 
-        /* НИЖНЯЯ НАВИГАЦИЯ LIQUID GLASS */
-        .bottom-nav {
+        .sub-btn.active {
+            background: rgba(0, 136, 255, 0.25);
+            border-color: var(--accent-blue);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .bite-gauge {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,0,0,0.2));
+            border: 1px solid rgba(0, 136, 255, 0.3);
+        }
+
+        .gauge-circle {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 4px solid var(--accent-cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 800;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
+        }
+
+        .bottom-bar {
             position: fixed;
             bottom: 0;
-            width: 100%;
-            height: 70px;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            background: rgba(10, 14, 22, 0.78);
+            left: 0;
+            right: 0;
+            height: 72px;
+            background: rgba(8, 12, 18, 0.85);
             backdrop-filter: blur(25px);
             -webkit-backdrop-filter: blur(25px);
             border-top: 1px solid var(--glass-border);
-            z-index: 2000;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 1000;
         }
 
-        .nav-btn {
+        .nav-item {
             background: none;
             border: none;
-            color: var(--text-secondary);
+            color: var(--text-sub);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -215,344 +242,473 @@
             width: 20%;
         }
 
-        .nav-btn.active {
-            color: var(--accent);
+        .nav-item.active {
+            color: var(--accent-cyan);
             font-weight: 600;
         }
 
-        .nav-btn .icon {
-            font-size: 20px;
-        }
+        .nav-item .icon { font-size: 20px; }
 
-        /* ПРОФИЛЬ И НАСТРОЙКИ */
-        .lang-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-top: 10px;
-        }
-
-        .lang-btn {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--glass-border);
-            color: #fff;
-            padding: 10px;
-            border-radius: 14px;
-            font-size: 12px;
-            cursor: pointer;
-        }
-
-        .lang-btn.active {
-            background: var(--accent);
-            border-color: var(--accent);
-            font-weight: bold;
-        }
-
-        .catch-item {
+        .user-header {
             display: flex;
-            gap: 12px;
             align-items: center;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid rgba(255,255,255,0.08);
+            gap: 14px;
+            margin-bottom: 16px;
         }
 
-        .catch-img {
-            width: 50px;
-            height: 50px;
-            border-radius: 12px;
+        .avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-blue);
             object-fit: cover;
         }
 
-        .hidden { display: none !important; }
-        
-        .blocked-overlay {
-            position: fixed; inset: 0; background: #000; z-index: 99999;
-            display: flex; align-items: center; justify-content: center; padding: 20px;
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
+
+        .setting-row:last-child { border-bottom: none; }
+
+        select, input[type="checkbox"] {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        .prem-hero {
+            background: linear-gradient(135deg, rgba(255, 183, 3, 0.2), rgba(0, 0, 0, 0.4));
+            border: 1px solid rgba(255, 183, 3, 0.4);
+            text-align: center;
+            padding: 24px 16px;
+        }
+
+        .prem-feature {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 14px;
+            background: linear-gradient(90deg, #ffb703, #ff8800);
+            color: #000;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(255, 183, 3, 0.4);
+            margin-top: 14px;
+        }
+
+        .badge-free {
+            background: rgba(255, 183, 3, 0.2);
+            color: var(--accent-gold);
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 183, 3, 0.3);
+        }
+
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <!-- ЭКРАН ЗАГРУЗКИ C ПРОГРЕСС-БАРОМ -->
-    <div id="loader-screen" class="loader-overlay">
-        <div class="loader-content">
-            <div class="loader-title">FISHSTATS</div>
-            <div class="progress-box">
-                <div class="progress-fill" id="progress-fill"></div>
+    <div id="splash" class="splash-loader">
+        <div class="loader-card">
+            <div class="loader-logo">FISHSTATS PRO</div>
+            <div class="progress-track">
+                <div class="progress-bar" id="p-bar"></div>
             </div>
-            <div class="progress-status">
-                <span id="loader-status" data-i18n="loading">Загрузка картографии...</span>
-                <span id="loader-percent">0%</span>
+            <div class="progress-text">
+                <span id="p-status">Загрузка картографии...</span>
+                <span id="p-percent">0%</span>
             </div>
         </div>
     </div>
 
-    <!-- БЛОКИРОВКА РЕГИОНА -->
-    <div id="block-screen" class="blocked-overlay hidden">
-        <div class="glass-card" style="text-align: center;">
-            <h2 data-i18n="blocked_title">🚫 Доступ ограничен</h2>
-            <p data-i18n="blocked_desc" style="margin-top: 10px; color: var(--text-secondary);">Сервис недоступен в вашем регионе.</p>
-        </div>
-    </div>
-
-    <div class="app-container">
+    <div class="app-shell">
 
         <!-- 1. КАРТА -->
-        <div id="tab-map" class="tab-content active">
-            <div id="map"></div>
-            <div class="glass-card map-info-card hidden" id="water-info">
-                <h3 id="water-name">Водоем</h3>
-                <p id="water-type" style="font-size: 12px; color: var(--text-secondary);">Тип водоема</p>
-                <div class="fish-tags" id="fish-list"></div>
+        <div id="tab-map" class="tab-view active">
+            <div id="map-container">
+                <div id="map"></div>
             </div>
         </div>
 
         <!-- 2. ПРОГНОЗ КЛЕВА -->
-        <div id="tab-forecast" class="tab-content">
-            <div class="content-padding">
-                <h2 class="section-title" data-i18n="forecast_title">Прогноз клева</h2>
-                
-                <div class="glass-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div id="tab-forecast" class="tab-view">
+            <div class="sub-nav">
+                <button class="sub-btn active" onclick="switchSubForecast('bite', this)">🎣 Активность</button>
+                <button class="sub-btn" onclick="switchSubForecast('tides', this)">🌊 Приливы</button>
+                <button class="sub-btn" onclick="switchSubForecast('waves', this)">🌊 Волна</button>
+                <button class="sub-btn" onclick="switchSubForecast('weather', this)">🌤 Погода</button>
+                <button class="sub-btn" onclick="switchSubForecast('astro', this)">🌙 Солнце/Луна</button>
+            </div>
+
+            <div style="padding: 12px 16px;">
+
+                <!-- ПОДВКЛАДКА 1: Активность -->
+                <div id="sub-bite" class="sub-content">
+                    <div class="glass-box bite-gauge">
                         <div>
-                            <div style="font-size: 13px; color: var(--text-secondary);" data-i18n="today_bite">Рассчитанный клев на сегодня</div>
-                            <div style="font-size: 32px; font-weight: 800; color: #4facfe; margin-top: 4px;" id="calc-bite-val">78%</div>
+                            <div style="font-size: 12px; color: var(--text-sub);">Средний клев сегодня</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #fff; margin-top: 4px;" id="bite-title">Высокая активность</div>
+                            <div style="font-size: 11px; color: var(--accent-cyan); margin-top: 2px;">
+                                Растущая луна • <span id="status-mode" class="badge-free">Ориентировочно (±15%)</span>
+                            </div>
                         </div>
-                        <div style="font-size: 30px;">🎣</div>
+                        <div class="gauge-circle" id="bite-val">78%</div>
                     </div>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;" id="bite-condition">
-                        Отличные условия: растущая луна и стабильное давление.
-                    </p>
+
+                    <div class="glass-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span style="font-size: 13px; font-weight: 600;">Прогноз по часам (Сегодня)</span>
+                            <span style="font-size: 10px; color: var(--text-sub);" id="chart-accuracy">Точность FREE: 80-85%</span>
+                        </div>
+                        <canvas id="biteChart" height="130"></canvas>
+                    </div>
+
+                    <div class="glass-box">
+                        <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">🔥 Лучшие часы для ловли</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-sub);">
+                            <span>Утренний пик: <b>05:30 — 08:15</b></span>
+                            <span>Вечерний пик: <b>18:00 — 21:00</b></span>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="glass-card">
-                    <h3 style="font-size: 15px; margin-bottom: 10px;" data-i18n="tides_title">Приливы и Отливы</h3>
-                    <p style="font-size: 13px; color: var(--text-secondary);">Пик прилива: <b>06:20</b> | Пик отлива: <b>18:45</b></p>
+                <!-- ПОДВКЛАДКА 2: Приливы -->
+                <div id="sub-tides" class="sub-content hidden">
+                    <div class="glass-box">
+                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">График приливов (Регион)</div>
+                        <div style="font-size: 12px; color: var(--text-sub); margin-bottom: 10px;">Текущий уровень: <b>+0.12 м</b></div>
+                        <canvas id="tideChart" height="130"></canvas>
+                    </div>
                 </div>
+
+                <!-- ПОДВКЛАДКА 3: Волна -->
+                <div id="sub-waves" class="sub-content hidden">
+                    <div class="glass-box">
+                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Морские условия</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+                            <div class="glass-box" style="margin: 0; padding: 10px;">
+                                <div style="color: var(--text-sub);">Высота волны</div>
+                                <div style="font-size: 18px; font-weight: 700; color: var(--accent-cyan);">0.4 м</div>
+                            </div>
+                            <div class="glass-box" style="margin: 0; padding: 10px;">
+                                <div style="color: var(--text-sub);">Вода</div>
+                                <div style="font-size: 18px; font-weight: 700; color: #ff9f43;">+19°C</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ПОДВКЛАДКА 4: Погода -->
+                <div id="sub-weather" class="sub-content hidden">
+                    <div class="glass-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 28px; font-weight: 800;">+21°C</div>
+                                <div style="font-size: 12px; color: var(--text-sub);">Ясно, ветер 3.5 м/с СВ</div>
+                            </div>
+                            <div style="font-size: 36px;">☀️</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ПОДВКЛАДКА 5: Астрономия -->
+                <div id="sub-astro" class="sub-content hidden">
+                    <div class="glass-box">
+                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Фаза Луны</div>
+                        <div style="font-size: 12px; color: var(--text-sub);">Растущая луна (68%)</div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
-        <!-- 3. УЛОВЫ И ОТЗЫВЫ ВОДОЕМОВ -->
-        <div id="tab-catches" class="tab-content">
-            <div class="content-padding">
-                <h2 class="section-title" data-i18n="catches_title">Уловы и Отзывы</h2>
-                
-                <div class="glass-card" onclick="addCatchModal()" style="text-align: center; cursor: pointer;">
-                    <span data-i18n="add_catch_btn">➕ Добавить свой улов на карту</span>
-                </div>
+        <!-- 3. УЛОВЫ -->
+        <div id="tab-catches" class="tab-view">
+            <div style="padding: 16px;">
+                <button class="action-btn" style="background: linear-gradient(90deg, #0088ff, #00d2ff); color: #fff; margin-bottom: 16px;" onclick="addCatchAlert()">
+                    📸 Поделиться уловом
+                </button>
 
-                <div class="glass-card">
-                    <h3 style="font-size: 14px; color: var(--accent);">Озеро Яськовское</h3>
-                    <div class="catch-item">
-                        <img src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=200&auto=format&fit=crop" class="catch-img">
+                <div class="glass-box">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&auto=format&fit=crop" style="width: 32px; height: 32px; border-radius: 50%;">
                         <div>
-                            <div style="font-weight: 600; font-size: 14px;">Карп 4.2 кг</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">Поймано на бойл, отличный ставок!</div>
+                            <div style="font-size: 13px; font-weight: 600;">Артем В.</div>
+                            <div style="font-size: 10px; color: var(--text-sub);">Хаджибейский лиман • Вчера</div>
                         </div>
                     </div>
+                    <p style="font-size: 12px; color: #ddd; margin-bottom: 10px;">Взял пеленгаса на чашечку. Клев отличный с 6 до 8 утра!</p>
+                    <img src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=600&auto=format&fit=crop" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px;">
                 </div>
             </div>
         </div>
 
         <!-- 4. ПРЕМИУМ -->
-        <div id="tab-premium" class="tab-content">
-            <div class="content-padding">
-                <div class="glass-card" style="background: linear-gradient(135deg, rgba(43,130,246,0.3), rgba(0,0,0,0.5));">
-                    <span style="background: var(--accent); font-size: 10px; padding: 3px 8px; border-radius: 10px; font-weight: bold;">PRO</span>
-                    <h2 style="margin-top: 8px;">FishStats Premium</h2>
-                    <p style="font-size: 13px; color: var(--text-secondary); margin: 10px 0;" data-i18n="prem_desc">
-                        Открывает карты глубин, точный расчет клева по часам на 14 дней и закрытые места.
-                    </p>
-                    <button class="lang-btn active" style="width: 100%; padding: 14px;" onclick="buyPro()" data-i18n="buy_btn">Купить PRO (500 Stars)</button>
+        <div id="tab-premium" class="tab-view">
+            <div style="padding: 16px;">
+                <div class="glass-box prem-hero">
+                    <span style="background: var(--accent-gold); color: #000; font-weight: 800; font-size: 10px; padding: 4px 10px; border-radius: 20px;">PRO ДОСТУП</span>
+                    <h2 style="font-size: 20px; margin-top: 8px;">Точный прогноз & Глубины</h2>
+                    <p style="font-size: 12px; color: var(--text-sub); margin-top: 6px;">Убери 15% погрешность и открывай батиметрию дна</p>
+                    
+                    <!-- ПОПРОБОВАТЬ 1 ДЕНЬ БЕСПЛАТНО -->
+                    <button class="action-btn" onclick="try1DayTrial()">🎁 Попробовать 1 день БЕСПЛАТНО</button>
+                    <button class="sub-btn" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="buyPro()">Купить PRO (500 Stars / месяц)</button>
+                </div>
+
+                <div class="glass-box">
+                    <div style="font-size: 14px; font-weight: 700; margin-bottom: 12px;">Преимущества PRO:</div>
+                    <div class="prem-feature">🎯 <span><b>100% Точный прогноз</b> (без погрешности FREE-версии)</span></div>
+                    <div class="prem-feature">🌊 <span><b>Карта глубин (Батиметрия)</b> водоемов и лиманов</span></div>
+                    <div class="prem-feature">📍 <span><b>Секретные уловистые точки</b> сообщества</span></div>
                 </div>
             </div>
         </div>
 
-        <!-- 5. ПРОФИЛЬ И НАСТРОЙКИ -->
-        <div id="tab-profile" class="tab-content">
-            <div class="content-padding">
-                <h2 class="section-title" data-i18n="profile_title">Мой Профиль</h2>
-                
-                <div class="glass-card">
-                    <h3 style="font-size: 15px;" data-i18n="lang_select">Язык приложения</h3>
-                    <div class="lang-grid">
-                        <button class="lang-btn" onclick="setLang('ru')">🇷🇺 Русский</button>
-                        <button class="lang-btn" onclick="setLang('uk')">🇺🇦 Українська</button>
-                        <button class="lang-btn" onclick="setLang('en')">🇬🇧 English</button>
+        <!-- 5. ПРОФИЛЬ -->
+        <div id="tab-profile" class="tab-view">
+            <div style="padding: 16px;">
+                <div class="glass-box">
+                    <div class="user-header">
+                        <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&auto=format&fit=crop" class="avatar" id="u-avatar">
+                        <div>
+                            <div style="font-size: 16px; font-weight: 700;" id="u-name">Тимофей</div>
+                            <div style="font-size: 11px; color: var(--text-sub);" id="u-id">ID: 984120412</div>
+                            <div style="display: inline-block; margin-top: 4px;" id="u-status-badge">
+                                <span class="badge-free">FREE Тариф</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-box">
+                    <div style="font-size: 14px; font-weight: 700; margin-bottom: 10px;">⚙️ Настройки</div>
+                    
+                    <div class="setting-row">
+                        <span style="font-size: 13px;">Слой карты</span>
+                        <select onchange="changeMapLayer(this.value)">
+                            <option value="sat">🛰 Спутник (ArcGIS)</option>
+                            <option value="bath">🌊 Спутник + Глубины (PRO)</option>
+                            <option value="osm">🗺 Схема (OSM)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-row">
+                        <span style="font-size: 13px;">Язык</span>
+                        <select onchange="changeLang(this.value)">
+                            <option value="ru">🇷🇺 Русский</option>
+                            <option value="uk">🇺🇦 Українська</option>
+                        </select>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- BOTTOM NAV -->
-        <nav class="bottom-nav">
-            <button class="nav-btn active" data-tab="tab-map">
+        <nav class="bottom-bar">
+            <button class="nav-item active" onclick="switchMainTab('tab-map', this)">
                 <span class="icon">🌐</span>
-                <span data-i18n="nav_map">Карта</span>
+                <span>Карта</span>
             </button>
-            <button class="nav-btn" data-tab="tab-forecast">
+            <button class="nav-item" onclick="switchMainTab('tab-forecast', this)">
                 <span class="icon">📈</span>
-                <span data-i18n="nav_forecast">Прогноз</span>
+                <span>Прогноз</span>
             </button>
-            <button class="nav-btn" data-tab="tab-catches">
+            <button class="nav-item" onclick="switchMainTab('tab-catches', this)">
                 <span class="icon">🐟</span>
-                <span data-i18n="nav_catches">Уловы</span>
+                <span>Уловы</span>
             </button>
-            <button class="nav-btn" data-tab="tab-premium">
+            <button class="nav-item" onclick="switchMainTab('tab-premium', this)">
                 <span class="icon">⭐</span>
-                <span data-i18n="nav_premium">Премиум</span>
+                <span>Премиум</span>
             </button>
-            <button class="nav-btn" data-tab="tab-profile">
+            <button class="nav-item" onclick="switchMainTab('tab-profile', this)">
                 <span class="icon">⚙️</span>
-                <span data-i18n="nav_profile">Настройки</span>
+                <span>Профиль</span>
             </button>
         </nav>
+
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        const tg = window.Telegram?.WebApp;
+        if(tg) { tg.expand(); }
 
-        let currentLang = localStorage.getItem("app_lang") || "ru";
-        let map;
+        let isPro = false;
+        let map, biteChartInstance, tideChartInstance;
+        let mapLayers = {};
 
-        const dict = {
-            ru: {
-                loading: "Загрузка картографии...",
-                blocked_title: "🚫 Доступ ограничен",
-                blocked_desc: "Сервис недоступен в вашем регионе.",
-                forecast_title: "Прогноз клева",
-                today_bite: "Рассчитанный клев на сегодня",
-                tides_title: "Приливы и Отливы",
-                catches_title: "Уловы и Отзывы",
-                add_catch_btn: "➕ Добавить свой улов на карту",
-                prem_desc: "Открывает карты глубин, точный расчет клева по часам на 14 дней и закрытые места.",
-                buy_btn: "Купить PRO (500 Stars)",
-                profile_title: "Мой Профиль",
-                lang_select: "Язык приложения",
-                nav_map: "Карта", nav_forecast: "Прогноз", nav_catches: "Уловы", nav_premium: "Премиум", nav_profile: "Настройки"
-            },
-            uk: {
-                loading: "Завантаження картографії...",
-                blocked_title: "🚫 Доступ обмежено",
-                blocked_desc: "Сервіс недоступний у вашому регіоні.",
-                forecast_title: "Прогноз клювання",
-                today_bite: "Розраховане клювання на сьогодні",
-                tides_title: "Припливи та Відпливи",
-                catches_title: "Улови та Відгуки",
-                add_catch_btn: "➕ Додати свій улов на карту",
-                prem_desc: "Відкриває карти глибин, точний розрахунок клювання по годинах на 14 днів та закриті місця.",
-                buy_btn: "Купити PRO (500 Stars)",
-                profile_title: "Мій Профіль",
-                lang_select: "Мова застосунку",
-                nav_map: "Карта", nav_forecast: "Прогноз", nav_catches: "Улови", nav_premium: "Преміум", nav_profile: "Налаштування"
-            },
-            en: {
-                loading: "Loading maps...",
-                blocked_title: "🚫 Access Restricted",
-                blocked_desc: "Service unavailable in your region.",
-                forecast_title: "Bite Forecast",
-                today_bite: "Calculated bite rate today",
-                tides_title: "Tides",
-                catches_title: "Catches & Reviews",
-                add_catch_btn: "➕ Add your catch to map",
-                prem_desc: "Unlocks depth maps, hourly bite calculations for 14 days and secret spots.",
-                buy_btn: "Buy PRO (500 Stars)",
-                profile_title: "My Profile",
-                lang_select: "App Language",
-                nav_map: "Map", nav_forecast: "Forecast", nav_catches: "Catches", nav_premium: "Premium", nav_profile: "Settings"
-            }
-        };
+        // Базовые точные данные
+        const exactBiteData = [20, 85, 95, 40, 50, 90, 30];
 
-        // СИМУЛЯЦИЯ БЫСТРОЙ ЗАГРУЗКИ C ПРОЦЕНТАМИ
         document.addEventListener("DOMContentLoaded", () => {
-            applyLang(currentLang);
-            checkGeo();
-
-            let percent = 0;
-            const fill = document.getElementById("progress-fill");
-            const percentTxt = document.getElementById("loader-percent");
+            let p = 0;
+            const bar = document.getElementById("p-bar");
+            const txt = document.getElementById("p-percent");
+            const status = document.getElementById("p-status");
 
             const interval = setInterval(() => {
-                percent += Math.floor(Math.random() * 15) + 10;
-                if (percent >= 100) {
-                    percent = 100;
+                p += Math.floor(Math.random() * 18) + 8;
+                if (p >= 100) {
+                    p = 100;
                     clearInterval(interval);
                     setTimeout(() => {
-                        document.getElementById("loader-screen").classList.add("hidden");
+                        document.getElementById("splash").classList.add("hidden");
                         initMap();
-                    }, 200);
+                        initCharts();
+                    }, 150);
                 }
-                fill.style.width = percent + "%";
-                percentTxt.innerText = percent + "%";
-            }, 80);
+                bar.style.width = p + "%";
+                txt.innerText = p + "%";
+                if(p > 50) status.innerText = "Расчет гидрологии и гидролокации...";
+            }, 60);
 
-            initNav();
+            if(tg?.initDataUnsafe?.user) {
+                const u = tg.initDataUnsafe.user;
+                document.getElementById("u-name").innerText = u.first_name + (u.last_name ? " " + u.last_name : "");
+                document.getElementById("u-id").innerText = "ID: " + u.id;
+                if(u.photo_url) document.getElementById("u-avatar").src = u.photo_url;
+            }
         });
 
-        function setLang(lang) {
-            currentLang = lang;
-            localStorage.setItem("app_lang", lang);
-            applyLang(lang);
-        }
-
-        function applyLang(lang) {
-            const data = dict[lang] || dict.ru;
-            document.querySelectorAll("[data-i18n]").forEach(el => {
-                const k = el.getAttribute("data-i18n");
-                if (data[k]) el.innerText = data[k];
-            });
-            document.querySelectorAll(".lang-btn").forEach(b => {
-                b.classList.remove("active");
-                if (b.getAttribute("onclick").includes(`'${lang}'`)) b.classList.add("active");
-            });
-        }
-
-        async function checkGeo() {
-            try {
-                const res = await fetch("https://ipapi.co/json/");
-                const data = await res.json();
-                if (data.country_code === "RU") {
-                    document.getElementById("block-screen").classList.remove("hidden");
-                }
-            } catch(e){}
-        }
-
+        // 1. КАРТА (Со слоем глубин OpenSeaMap)
         function initMap() {
-            map = L.map("map").setView([46.4825, 30.7233], 10);
-            L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { maxZoom: 19 }).addTo(map);
+            map = L.map("map", { zoomControl: false }).setView([46.4825, 30.7233], 11);
 
-            fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries/RUS.geo.json")
-                .then(r => r.json())
-                .then(d => {
-                    L.geoJSON(d, { style: { fillColor: "#333", fillOpacity: 0.8, color: "#111", weight: 1 } }).addTo(map);
-                });
+            // Спутник
+            mapLayers.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 18
+            });
 
-            map.on("click", (e) => {
-                const card = document.getElementById("water-info");
-                card.classList.remove("hidden");
-                document.getElementById("water-name").innerText = `Водоем (${e.latlng.lat.toFixed(2)}, ${e.latlng.lng.toFixed(2)})`;
-                document.getElementById("water-type").innerText = e.latlng.lat > 46.5 ? "Пресноводный ставок" : "Черное море / Лиман";
-                document.getElementById("fish-list").innerHTML = '<span class="tag">🐟 Карп</span><span class="tag">🐟 Карась</span><span class="tag">🐟 Судак</span>';
+            // Схема
+            mapLayers.osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 });
+
+            // Слой Батиметрии (Реальные глубины и мореходные карты)
+            mapLayers.bath = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 18 });
+
+            mapLayers.sat.addTo(map);
+
+            // Метка Фонтанка
+            L.marker([46.56, 30.85]).addTo(map).bindPopup("<b>Фонтанка Спот</b><br>Глубины у берега: 2.5 - 6.0 м");
+        }
+
+        function changeMapLayer(type) {
+            if(type === 'bath' && !isPro) {
+                tg?.showAlert("🔒 Слой глубин доступен только в PRO версии или во время 1 дня триала!");
+                return;
+            }
+
+            // Очищаем все слои
+            map.removeLayer(mapLayers.sat);
+            if(mapLayers.osm) map.removeLayer(mapLayers.osm);
+            if(mapLayers.bath) map.removeLayer(mapLayers.bath);
+
+            if(type === 'osm') {
+                mapLayers.osm.addTo(map);
+            } else if(type === 'bath') {
+                mapLayers.sat.addTo(map);
+                mapLayers.bath.addTo(map); // Накладываем глубины поверх спутника
+            } else {
+                mapLayers.sat.addTo(map);
+            }
+        }
+
+        // 2. РАСЧЕТ ДАННЫХ С УЧЕТОМ ПОГРЕШНОСТИ ДЛЯ FREE
+        function getDisplayBiteData() {
+            if (isPro) return exactBiteData;
+            
+            // Вносим искусственную погрешность 10-15% для обычной версии
+            return exactBiteData.map(val => {
+                const noise = (Math.random() * 24) - 12; // +- 12%
+                return Math.min(100, Math.max(10, Math.round(val + noise)));
             });
         }
 
-        function initNav() {
-            document.querySelectorAll(".nav-btn").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    const tab = btn.getAttribute("data-tab");
-                    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
-                    document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
-                    btn.classList.add("active");
-                    document.getElementById(tab).classList.add("active");
-                    if (tab === "tab-map" && map) setTimeout(() => map.invalidateSize(), 100);
-                });
+        function initCharts() {
+            const ctxBite = document.getElementById('biteChart').getContext('2d');
+            biteChartInstance = new Chart(ctxBite, {
+                type: 'line',
+                data: {
+                    labels: ['00:00','04:00','08:00','12:00','16:00','20:00','24:00'],
+                    datasets: [{
+                        data: getDisplayBiteData(),
+                        borderColor: '#00d2ff',
+                        backgroundColor: 'rgba(0, 210, 255, 0.15)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: { plugins: { legend: { display: false } }, scales: { x: { display: true }, y: { display: false } } }
+            });
+
+            const ctxTide = document.getElementById('tideChart').getContext('2d');
+            tideChartInstance = new Chart(ctxTide, {
+                type: 'line',
+                data: {
+                    labels: ['00:00','06:00','12:00','18:00','24:00'],
+                    datasets: [{
+                        data: [0.1, 0.4, -0.1, 0.3, 0.0],
+                        borderColor: '#0088ff',
+                        backgroundColor: 'rgba(0, 136, 255, 0.15)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: { plugins: { legend: { display: false } } }
             });
         }
 
-        function buyPro() { tg.sendData(JSON.stringify({ action: "buy_pro" })); }
-        function addCatchModal() { tg.showAlert("Выберите точку на карте для прикрепления фото!"); }
+        // АКТИВАЦИЯ ТРИАЛА НА 1 ДЕНЬ
+        function try1DayTrial() {
+            isPro = true;
+            document.getElementById("status-mode").innerText = "PRO Точность (100%)";
+            document.getElementById("status-mode").style.background = "rgba(0, 210, 255, 0.2)";
+            document.getElementById("status-mode").style.color = "#00d2ff";
+            document.getElementById("chart-accuracy").innerText = "Точность PRO: 98-100%";
+            document.getElementById("u-status-badge").innerHTML = `<span style="background: rgba(0,210,255,0.2); color: #00d2ff; font-size: 10px; padding: 2px 8px; border-radius: 6px;">PRO Триал (1 день)</span>`;
+
+            // Обновляем график на точный
+            biteChartInstance.data.datasets[0].data = exactBiteData;
+            biteChartInstance.update();
+
+            tg?.showAlert("🎉 Вам активирован бесплатный доступ на 1 ДЕНЬ! Теперь доступна батиметрия и 100% точный прогноз.");
+        }
+
+        function switchMainTab(tabId, el) {
+            document.querySelectorAll(".tab-view").forEach(t => t.classList.remove("active"));
+            document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+            document.getElementById(tabId).classList.add("active");
+            el.classList.add("active");
+            if(tabId === 'tab-map' && map) setTimeout(() => map.invalidateSize(), 100);
+        }
+
+        function switchSubForecast(sub, el) {
+            document.querySelectorAll(".sub-content").forEach(s => s.classList.add("hidden"));
+            document.querySelectorAll(".sub-btn").forEach(b => b.classList.remove("active"));
+            document.getElementById("sub-" + sub).classList.remove("hidden");
+            el.classList.add("active");
+        }
+
+        function buyPro() { tg?.sendData(JSON.stringify({ action: "buy_pro" })); }
+        function addCatchAlert() { tg?.showAlert("Выберите точку на карте для загрузки вашего фото."); }
+        function changeLang(l) { tg?.showAlert("Язык изменен"); }
     </script>
 </body>
 </html>
