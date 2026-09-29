@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 
 TOKEN = os.getenv("BOT_TOKEN")
 # Точная ссылка с заглавными буквами FishStats
-WEBAPP_URL = "https://timofej-jpg.github.io/FishStats/webapp/"
+WEBAPP_URL = "https://timofej-jpg.github.io/dd73-bot/"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
