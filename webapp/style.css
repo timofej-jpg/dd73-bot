@@ -1,54 +1,25 @@
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--tg-theme-bg-color, #1c1c1e);
-    color: var(--tg-theme-text-color, #ffffff);
-    margin: 0;
-    padding: 16px;
+/* ВЫБОР ЯЗЫКА */
+.lang-selector {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 15px;
 }
 
-.container {
-    width: 100%;
-    max-width: 400px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-h2 {
-    text-align: center;
-    margin-bottom: 8px;
-}
-
-label {
-    font-size: 14px;
-    color: var(--tg-theme-hint-color, #aaa);
-}
-
-select, input {
-    width: 100%;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #333;
-    background-color: var(--tg-theme-secondary-bg-color, #2c2c2e);
-    color: var(--tg-theme-text-color, #fff);
-    font-size: 16px;
-    box-sizing: border-box;
-}
-
-button {
-    margin-top: 10px;
-    padding: 14px;
-    border-radius: 10px;
-    border: none;
-    background-color: var(--tg-theme-button-color, #007aff);
-    color: var(--tg-theme-button-text-color, #ffffff);
-    font-size: 16px;
-    font-weight: bold;
+.lang-btn {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    padding: 10px 5px;
+    border-radius: 12px;
+    font-size: 12px;
     cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-button:active {
-    opacity: 0.8;
+.lang-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: bold;
 }
