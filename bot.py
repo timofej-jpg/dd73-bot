@@ -8,7 +8,7 @@ import asyncio
 logging.basicConfig(level=logging.INFO)
 
 TOKEN = os.getenv("BOT_TOKEN")
-# Новая ссылка с учетом переименования репозитория:
+# Точная ссылка с заглавными буквами FishStats
 WEBAPP_URL = "https://timofej-jpg.github.io/FishStats/webapp/"
 
 bot = Bot(token=TOKEN)
